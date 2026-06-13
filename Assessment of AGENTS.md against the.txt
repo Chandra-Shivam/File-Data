@@ -1,14 +1,23 @@
-Before responding to ANY request in this project:
+Read AGENTS.md and UI-PATTERNS.md first. Confirm with 
+"✓ Read AGENTS.md and UI-PATTERNS.md. Ready." before proceeding.
 
-1. Read AGENTS.md from the root of the project using your 
-   file reading tool.
-2. Read UI-PATTERNS.md from the root of the project using 
-   your file reading tool.
-3. Confirm you have read both by responding with:
-   "✓ Read AGENTS.md and UI-PATTERNS.md. Ready."
-4. Only then proceed with the task.
+---
 
-These two files are non-negotiable. Every rule, pattern, class 
-name, and file location defined in them overrides anything from 
-your training data or prior assumptions. Never generate code 
-that contradicts them.
+Feature: Loan Codes Library Maintenance
+Route: /maintenance/loan-codes
+Auth policy: RequireActiveUser
+
+Database table: [CAS_RISKREVIEW_DEV].[dbo].[03_LIBRARY_07_Loan Codes]
+Columns:
+  - Loan_code (string, PRIMARY KEY — read-only in edit mode)
+  - Loan_code_category (string, dropdown)
+  - Loan_code_description (string, free text)
+
+Stage 1 — Backend only. Deliver in this order:
+1. Casrr.Domain/Entities/LoanCode.cs
+2. Casrr.Application/ILoanCodeRepository.cs
+3. Casrr.Application/Reviews/Contracts/LoanCodeContracts.cs
+4. Casrr.Infrastructure/SqlServer/SqlLoanCodeRepository.cs
+5. Casrr.Api/Controllers/LoanCodesController.cs
+
+Do not generate any frontend files yet.
