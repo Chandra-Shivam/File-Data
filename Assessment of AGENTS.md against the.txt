@@ -1,214 +1,276 @@
-Re-assessment completed after your updates. The current UI-PATTERNS.md now closely mirrors the two maintenance pages.
-
-Files reviewed
-- UI-PATTERNS.md (updated)
+Re-assessment after your latest UI-PATTERNS.md changes. Compared precisely against:
 - frontend/src/app/maintenance/covenants/page.tsx
 - frontend/src/app/maintenance/cas-findings/page.tsx
 
 1) What matches exactly
 
-- Design palette and shared components
-  - UI-PATTERNS.md (Section 1)
-    - “slate” surfaces/text, “emerald” success
-    - Use shared Button and Select
-  - Code (both pages)
-    - Imports: import Select from "@/components/ui/Select"; import { Button } from "@/components/ui/Button";
-    - Toasts: className="rounded bg-emerald-600 text-white shadow px-3 py-2 text-sm"
-    - Error banner: className="rounded border border-red-300 bg-red-50 text-red-800 p-3 text-sm"
+- Design palette and shared UI components
+  UI-PATTERNS.md §1
+    import { Button } from '@/components/ui/Button'
+    import Select from '@/components/ui/Select'
+    Success toast: bg-emerald-600 text-white
+    Error: border-red-300 bg-red-50 text-red-800
+  Covenants/CAS Findings:
+    import Select from "@/components/ui/Select";
+    import { Button } from "@/components/ui/Button";
+    Toast item: className="rounded bg-emerald-600 text-white shadow px-3 py-2 text-sm"
+    Error banner: className="rounded border border-red-300 bg-red-50 text-red-800 p-3 text-sm"
 
 - Page shell
-  - Pattern (Section 2):
+  UI-PATTERNS.md §2
     <div className="p-4 space-y-4"> … <h1 className="text-xl font-semibold text-slate-800">…</h1>
-  - Covenants:
+  Covenants:
     <div className="p-4 space-y-4"> … <h1 className="text-xl font-semibold text-slate-800">Covenants — Library Maintenance</h1>
-  - CAS Findings:
+  CAS Findings:
     <div className="p-4 space-y-4"> … <h1 className="text-xl font-semibold text-slate-800">CAS Findings — Library Maintenance</h1>
 
-- Toast system (array state, top-right, 3s auto-dismiss)
-  - Pattern (Section 3):
-    type ToastMsg = { id: number; text: string }; const [toasts, setToasts] = useState<ToastMsg[]>([]);
+- Toast system: array state with ID, 3s auto-dismiss, top-right render
+  UI-PATTERNS.md §3
+    type ToastMsg = { id: number; text: string }
     setTimeout(() => remove after 3000)
     Render container: className="fixed right-4 top-4 z-50 space-y-2"
-  - Code (both pages): identical type/shape, showToast with setTimeout, top-right render
+  Covenants:
+    type ToastMsg = { id: number; text: string };
+    showToast: window.setTimeout(() => …, 3000)
+    Render: <div aria-live="polite" className="fixed right-4 top-4 z-50 space-y-2">…</div>
+  CAS Findings: identical
 
 - Error banner
-  - Pattern (Section 4): pageError state name, non-dismissible, classes border-red-300 bg-red-50 text-red-800 p-3 text-sm
-  - Code (both pages): identical state name + classes
+  UI-PATTERNS.md §4
+    const [pageError, setPageError] = useState<string | null>(null)
+    {pageError && <div className="rounded border border-red-300 bg-red-50 text-red-800 p-3 text-sm">{pageError}</div>}
+  Covenants/CAS Findings: identical state name and classes
 
-- Filter bar
-  - Pattern (Section 5): Label class "text-xs text-slate-600 mb-1", Select size="sm" className="bg-white min-w-[260px]"
-  - Covenants:
+- Filter bar classes and Select usage
+  UI-PATTERNS.md §5
+    <label className="text-xs text-slate-600 mb-1 block">…</label>
+    <Select size="sm" className="bg-white min-w-[260px]">…
+  Covenants:
     <label className="text-xs text-slate-600 mb-1">Filter by Category</label>
     <Select size="sm" className="bg-white min-w-[260px]" … />
-  - CAS Findings: same with “Filter by Component”
+  CAS Findings: same with “Filter by Component”
 
-- Add New form structure and behaviors
-  - Pattern (Section 6): Card p-4, outline Button, grid layout md:grid-cols-6, single createError block
-  - Covenants:
-    <div className="bg-white border border-slate-200 rounded p-4">
-    <div className="text-slate-700 font-semibold mb-2">Add New Covenant</div>
-    <form className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end" …>
-    <Button type="submit" size="sm" variant="outline" disabled={isCreating}>{isCreating ? "Creating…" : "Create"}</Button>
+- Add New form: card wrapper, outline submit, grid, single form-level error
+  UI-PATTERNS.md §6
+    <div className="bg-white border border-slate-200 rounded p-4"> …
+    <form className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end"> …
+    <Button type="submit" size="sm" variant="outline" disabled={isCreating}>…
     {createError && <div className="text-sm text-red-600 mt-2">{createError}</div>}
-  - CAS Findings: identical structure with entity-specific fields
+  Covenants: matches exactly in structure/classes for card, grid, outline button, form error
+  CAS Findings: matches exactly
 
-- Table wrapper, header bar, thead classes
-  - Pattern (Section 7b):
+- Table wrapper, header bar, thead, scroll wrapper, table width
+  UI-PATTERNS.md §7b and §10
     <div className="bg-white border border-slate-200 rounded overflow-hidden">
     <div className="px-3 py-2 bg-slate-50 text-slate-700 text-sm font-semibold border-b border-slate-200">
     <div className="overflow-auto">
     <table className="min-w-full text-sm">
     <thead className="bg-slate-50 text-slate-600">
-  - Covenants:
-    Exact match on these wrappers/classes
-  - CAS Findings:
-    Exact match
+  Covenants/CAS Findings: all of the above match exactly
 
-- Helper components placement and classes
-  - Pattern (Section 7a): Define Th/Td at the bottom of the page file; Th px-3 py-2 text-left font-semibold border-b border-slate-200; Td px-3 py-2 align-middle
-  - Covenants:
-    Helpers are defined after the default export with identical classes
-  - CAS Findings:
-    Same
+- Th/Td helper components and placement at bottom
+  UI-PATTERNS.md §7a
+    Th: className 'px-3 py-2 text-left font-semibold border-b border-slate-200'
+    Td: className 'px-3 py-2 align-middle'
+    Placement note: Define at the bottom of the page file
+  Covenants:
+    function Th … return <th className={"px-3 py-2 text-left font-semibold border-b border-slate-200 " + className}>
+    function Td … return <td className={"px-3 py-2 align-middle " + className} …
+    Helpers are defined after the default export (bottom)
+  CAS Findings: identical
 
-- SkeletonRows usage and shape
-  - Pattern (Section 7c): SkeletonRows returns a div stack of animated bars; used via a single wrapper row:
-    <tr><Td colSpan={N}><SkeletonRows /></Td></tr>
-  - Covenants:
-    {isLoadingRows ? (<tr><Td colSpan={5}><SkeletonRows /></Td></tr>) …}, SkeletonRows returns a div with 5 bars
-  - CAS Findings:
-    Same with colSpan={6}
+- SkeletonRows shape and usage
+  UI-PATTERNS.md §7c
+    SkeletonRows returns a div stack; used inside a single <tr><Td colSpan={N}><SkeletonRows /></Td></tr>
+  Covenants:
+    {isLoadingRows ? (<tr><Td colSpan={5}><SkeletonRows /></Td></tr>) …}
+    function SkeletonRows() { return (<div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => (<div key={i} className="h-10 w-full bg-slate-100 border border-slate-200 rounded animate-pulse" />))}</div>) }
+  CAS Findings: same with colSpan={6}
 
-- Row behavior: inputs always rendered; disabled toggles; PK plain text; Edit toggles to Cancel; Save/Delete always visible
-  - Pattern (Section 8): Described exactly
-  - Covenants:
-    Disabled={!r.editing} on inputs/select; PK cell text; three buttons with Edit/Cancel text toggle
-  - CAS Findings:
-    Same
+- Row behavior: inputs always rendered and disabled when not editing; PK fields are plain text monospace at 12px; Edit toggles to Cancel; Save/Delete always visible
+  UI-PATTERNS.md §8 overview and §10
+    PK cell: align-middle font-mono text-[12px] text-slate-700
+  Covenants:
+    PK Td: className="align-middle font-mono text-[12px] text-slate-700">{r.original.code}
+    Inputs/select use disabled={!r.editing}; three buttons with Edit/Cancel/Save/Delete as shown
+  CAS Findings: same; PK cells for component and findingCode both use text-[12px]
 
-- Delete confirmation modal (a11y, focus trap)
-  - Pattern (Section 9): role="dialog", aria-modal, aria-*, ESC/tab handling, backdrop "bg-black/40"
-  - Covenants:
-    useEffect focus trap; role/aria attrs; backdrop; restores body scroll; restores focus
-  - CAS Findings:
-    Same
+- Delete confirmation modal: backdrop, role/aria, ESC and focus trap behavior
+  UI-PATTERNS.md §9 prescribes accessible modal with focus trap and ESC handling
+  Covenants/CAS Findings: both implement role="dialog", aria-modal, aria-labelledby/aria-describedby; a useEffect that traps focus, handles Escape, and restores focus on close
 
 - Color/state reference
-  - Pattern (Section 10) enumerates:
-    - Table scroll wrapper: overflow-auto; table: min-w-full
-    - Row: border-t border-slate-200 align-top
-    - PK cell: align-middle font-mono text-[12px] text-slate-700
-    - Textarea (edit mode) class incl. shadow-sm and focus:ring-[color:var(--brand-primary)]/30
-  - Code:
-    All the above present in respective pages
+  UI-PATTERNS.md §10 enumerates classes now used in both files:
+    - Table scroll wrapper overflow-auto; table min-w-full
+    - Row border-t border-slate-200 align-top
+    - Textarea with shadow-sm and focus:ring-[color:var(--brand-primary)]/30 (CAS Findings)
+    - PK cell classes
+  Actual files: match
 
-2) What is different
+2) What is different (exact code vs pattern)
 
-- Toast container placement in JSX tree
-  - Pattern (Section 2 and 3): “Toast Stack — always at bottom of JSX”
-  - Covenants/CAS:
-    Toast container is rendered near the top of the returned JSX (right after opening shell div), e.g.:
+- Toast container placement in JSX
+  Pattern (§2/§3): “Toast Stack — always at bottom of JSX”
+  Covenants/CAS place it near the top of the returned JSX tree:
     <div aria-live="polite" className="fixed right-4 top-4 z-50 space-y-2">…</div>
-  - Functional classes match; positional guidance differs.
+  Classes/behavior match; placement guidance differs.
 
-- Create form input classes (height vs padding)
-  - Pattern (Section 6 text input example):
+- Filter Bar: “Client-side filtering only — no API call on filter change”
+  Pattern (§5) explicitly states no API call on filter change.
+  Actual code performs an API call when the filter changes:
+  Covenants:
+    useEffect(() => { … const lib = await listLibrary(selectedCategory || undefined); … }, [selectedCategory])
+  CAS Findings:
+    useEffect(() => { … const lib = await listLibrary(selectedComponent || undefined); … }, [selectedComponent])
+
+- Add New form: button wrapper alignment and input sizing
+  Pattern (§6) submit wrapper:
+    <div className="md:col-span-1 self-end">…
+  Covenants/CAS:
+    <div className="md:col-span-1">…  // no self-end
+  Pattern (§6) text input example:
     className="w-full border border-slate-300 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none"
-  - Covenants (create inputs):
-    className="w-full h-8 border border-slate-300 rounded px-2 text-sm bg-white" (e.g., Code/Covenant Type/Order fields)
-  - Differences:
-    - Uses explicit h-8 instead of py-1
-    - Adds bg-white
-    - Omits text-slate-700 on create inputs
+  Covenants create inputs use explicit height and bg:
+    className="w-full h-8 border border-slate-300 rounded px-2 text-sm bg-white"
+  CAS Findings create inputs/textarea are analogous.
 
-- Example vs actual column sets and index cell in sample row
-  - Pattern (Section 7b) clarifies “No leading # index column — columns are entity-specific”
-  - Pattern (Section 8b) example shows a “Row number” TD:
+- Row state shape and property names
+  Pattern (§8a) shows “edited: EntityType” and examples reference r.edited.category
+  Actual rows keep edited values as top-level fields (no nested edited object):
+  Covenants RowEdit:
+    { original, category: string, covenantType: string, order: string, editing: boolean, dirty: boolean, … }
+  CAS Findings RowEdit:
+    { original, description: string, category: string, guidance: string, editing: boolean, dirty: boolean, … }
+  All bindings read/write r.category, r.description, r.guidance, etc., not r.edited.*
+
+- Disabled input styling tokens
+  Pattern (§8b, §10) includes:
+    disabled:bg-transparent disabled:border-transparent on view-mode inputs
+  Actual inputs do not include these disabled: utility classes. Example from Covenants (Order field):
+    <input … className="w-full h-8 border border-slate-300 rounded px-2 text-sm bg-white" disabled={!r.editing} />
+  CAS Findings textareas similarly omit disabled: overrides.
+
+- Delete modal structure and classes
+  Pattern (§9) dialog box class:
+    className="relative bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-4"
+  Actual dialog structure and classes (Covenants, CAS Findings):
+    Container: <div className="fixed inset-0 z-[60] flex items-center justify-center">
+    Backdrop:  <div className="absolute inset-0 bg-black/40" … />
+    Dialog:    <div ref={modalRef} tabIndex={-1}
+                  className="relative z-[61] w-[90%] max-w-md rounded bg-white shadow-lg border border-slate-200">
+                <div className="px-4 py-3 border-b border-slate-200">…title…</div>
+                <div className="px-4 py-3 text-sm text-slate-700">…desc…</div>
+                <div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">…buttons…</div>
+               </div>
+  Differences: split header/desc/footer; border-b/t sections; shadow-lg vs shadow-xl; max-w-md vs max-w-sm; explicit z-[61] and border class on dialog.
+
+- Th/Td placement note inconsistency inside the doc
+  UI-PATTERNS.md §7a header text: “Define these once at the bottom of the page file”
+  The code block comment embedded says: “Define at the top of the page file”
+  Actual pages define helpers at the bottom; the internal comment line in the pattern contradicts its own header.
+
+- Example row number cell
+  Pattern (§8b) example includes a “Row number” cell:
     <Td className="text-slate-400 text-xs">{index + 1}</Td>
-  - Actual pages:
-    Do not include an index column/cell in either table rows
+  Actual tables render no index column/cell.
 
 3) What exists in the actual pages but is missing from UI-PATTERNS.md
 
-- Toast container location near top of JSX
-  - Covenants and CAS Findings render the toast container at the top of the return tree:
-    <div aria-live="polite" className="fixed right-4 top-4 z-50 space-y-2">…</div>
-  - Pattern instructs to place “at bottom of JSX” but does not document that rendering higher up is allowed; functionally identical due to fixed positioning. If pattern is meant to be prescriptive about placement for readability, this remains an undocumented variance.
+- Modal z-index and body scroll locking
+  Actual:
+    Outer container z-[60], dialog z-[61].
+    useEffect in both pages sets document.body.style.overflow = "hidden" on open and restores on close.
+  Pattern (§9) does not document z-index layering or body scroll lock/restore.
 
-- Create form inputs use h-8 and bg-white
-  - Covenants:
-    <input … className="w-full h-8 border border-slate-300 rounded px-2 text-sm bg-white" />
-  - Pattern’s Section 6 example does not include h-8 or bg-white on the create form inputs. Section 10 does specify input classes generally but not h-8.
+- Split-section dialog layout with borders
+  Actual:
+    Header with border-b, footer with border-t, all with px-4 py-3.
+  Pattern shows a single p-6 content block, no internal section borders.
 
-4) What is in UI-PATTERNS.md but not used anywhere in the actual code (in these two files)
-
-- “Toast Stack — always at bottom of JSX”
-  - Pattern editorial guidance says “always at bottom of JSX”
-  - Both pages render the toast stack at the top of the JSX tree. Classes and behavior do match, just the placement differs.
-
-- “Row number” TD in Section 8b example
-  - Pattern snippet includes:
-    <Td className="text-slate-400 text-xs">{index + 1}</Td>
-  - Neither maintenance page renders a row-number column/cell.
-
-- “self-end” on create button wrapper
-  - Pattern (Section 6): <div className="md:col-span-1 self-end">…Button…</div>
-  - Covenants: <div className="md:col-span-1">…Button…</div>
-  - CAS Findings: <div className="md:col-span-1">…Button…</div>
-  - The forms use grid items-end at the form level; self-end is not present in the code.
-
-- TableRow component reference in Section 7b example
-  - Pattern sample maps to <TableRow … />
-  - Actual pages inline the <tr> markup; no separate TableRow component is used. The doc elsewhere (8b) also shows inline rows, so this is just an example artifact not reflected in these two files.
-
-Concrete code vs pattern excerpts
-
-- Toast container placement
-  - Pattern:
-    {/* Toast Stack — always at bottom of JSX, outside content flow */}
-    <div aria-live="polite" className="fixed right-4 top-4 z-50 space-y-2">…</div>
-  - Covenants (top of return):
-    <div aria-live="polite" className="fixed right-4 top-4 z-50 space-y-2">…</div>
-
-- Create form input height
-  - Pattern (Section 6):
-    className="w-full border border-slate-300 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none"
-  - Covenants (Code field):
+- Create inputs using explicit fixed height
+  Actual (Covenants):
     className="w-full h-8 border border-slate-300 rounded px-2 text-sm bg-white"
+  Pattern (§6/§10) does not list h-8 for create inputs.
 
-- SkeletonRows usage (now aligned)
-  - Pattern (Section 7c):
-    <tr><Td colSpan={N}><SkeletonRows /></Td></tr>, SkeletonRows returns div bars
-  - Covenants:
-    <tr><Td colSpan={5}><SkeletonRows /></Td></tr> and SkeletonRows returns the div with bars
-  - CAS Findings:
-    <tr><Td colSpan={6}><SkeletonRows /></Td></tr>
+4) What is in UI-PATTERNS.md but not used in the actual codebase (in these two pages)
 
-- Row PK cell size (aligned)
-  - Pattern (Section 10):
-    PK cell: align-middle font-mono text-[12px] text-slate-700
-  - Covenants:
-    <Td className="align-middle font-mono text-[12px] text-slate-700">{r.original.code}</Td>
-  - CAS Findings:
-    <Td className="align-middle font-mono text-[12px] text-slate-700">{r.original.component}</Td>
-    <Td className="align-middle font-mono text-[12px] text-slate-700">{r.original.findingCode}</Td>
+- Filter Bar guidance: “Client-side filtering only — no API call on filter change” (§5)
+  Both pages call listLibrary on filter change via useEffect.
 
-- Table scroll wrapper and width (aligned)
-  - Pattern (Section 10):
-    Table scroll wrapper: overflow-auto; Table: min-w-full
-  - Covenants:
-    <div className="overflow-auto"><table className="min-w-full text-sm">
-  - CAS Findings:
-    <div className="overflow-auto"><table className="min-w-full text-sm">
+- Row state shape with edited object (§8a) and usage (r.edited.*)
+  Neither page uses a nested edited object; they store edited fields at the top level of the row.
 
-Conclusion
-- UI-PATTERNS.md now matches the real implementation for the two maintenance pages across palette, shared components, page shell, toast system, error banner, filter bar, add form, table wrappers, helpers, skeleton loading, row behavior, modal confirmation, and most class tokens.
-- Minor residual differences remain:
-  - Toast container placement in the JSX tree (pattern says “bottom of JSX”; pages render it at top)
-  - Create form inputs use h-8 and bg-white (pattern example uses py-1 and text-slate-700 without h-8)
-  - Section 8b row example includes a “Row number” TD not used by either page
-  - “self-end” on the Button wrapper in the pattern form example is not present in the pages
-- If the document intends true 1:1 strictness for future codegen, either:
-  - Adjust the pattern examples for the create form inputs (allow h-8/bg-white), remove the row-number TD from the row example, and relax or clarify the toast container placement note; or
-  - Update the two pages to add self-end in the button wrapper and change create-input classes to match the exact py-1/text-slate-700 combination.
-This assessment cites the exact code and classes present in the repo files vs the current UI-PATTERNS.md.
+- Disabled input visual overrides (disabled:bg-transparent disabled:border-transparent) (§8b/§10)
+  Not present on inputs/textareas in either page.
+
+- Submit button wrapper self-end in the form (§6)
+  Pattern: <div className="md:col-span-1 self-end">…
+  Actual: <div className="md:col-span-1">…</div>
+
+- Example mapping to a TableRow component in §7b
+  Pattern:
+    {!isLoadingRows && filteredItems.map((item) => (<TableRow key={item.code} item={item} />))}
+  Actual: inline <tr> markup; no TableRow component used here.
+
+- “Toast Stack — always at bottom of JSX” (§2/§3) as a prescriptive placement rule
+  Actual: toast container is rendered near the top of the returned JSX.
+
+Exact code excerpts for key differences
+
+- API call on filter change vs pattern’s “client-side only”
+  Covenants:
+    useEffect(() => {
+      let alive = true;
+      (async () => {
+        setIsLoadingRows(true);
+        setPageError(null);
+        try {
+          const lib = await listLibrary(selectedCategory || undefined);
+          …
+        })();
+    }, [selectedCategory]);
+  UI-PATTERNS.md §5 comment: “Client-side filtering only — no API call on filter change.”
+
+- Row state shape
+  Pattern (§8a):
+    type RowState = { original: EntityType; edited: EntityType; editing: boolean; … }
+  Covenants RowEdit:
+    type RowEdit = {
+      original: CovenantLibraryItem;
+      category: string;
+      covenantType: string;
+      order: string;
+      dirty: boolean;
+      saving: boolean;
+      deleting: boolean;
+      editing: boolean;
+      error?: string | null;
+    };
+  CAS Findings RowEdit:
+    type RowEdit = {
+      original: CasFindingLibraryItem;
+      description: string;
+      category: string;
+      guidance: string;
+      dirty: boolean; saving: boolean; deleting: boolean; editing: boolean; error?: string | null;
+    };
+
+- Delete modal dialog box class
+  Pattern (§9):
+    className="relative bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-4"
+  Covenants:
+    className="relative z-[61] w-[90%] max-w-md rounded bg-white shadow-lg border border-slate-200"
+
+- Toast placement rule vs actual placement
+  Pattern (§2/§3): “Toast Stack — always at bottom of JSX”
+  Covenants:
+    Toast container appears immediately after opening the page shell div.
+
+Summary
+- UI-PATTERNS.md now aligns with the two maintenance pages on most structure and class tokens (skeleton usage, overflow-auto/min-w-full, PK cell 12px, textarea focus ring, table wrappers, toasts/error banners, modal a11y).
+- Remaining mismatches are focused on process/guidance and a few structural/class specifics:
+  - Filter bar guidance still says no API calls on filter change, but both pages do call the API on filter changes.
+  - Row state shape in patterns (nested edited object) diverges from the top-level field approach in code.
+  - Modal uses different class structure (split header/footer with borders, z-indices, body scroll lock) than the single p-6 block shown in the pattern.
+  - Minor: toast placement wording (bottom vs top), lack of disabled: visual overrides in code, missing self-end on submit wrapper, example “row number” TD and TableRow component that aren’t used.
+This report references the exact repo code and the specific lines/classes in UI-PATTERNS.md where they differ, as requested.
