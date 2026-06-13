@@ -1,33 +1,12 @@
-✓ Read AGENTS.md and UI-PATTERNS.md. Ready.
+In LoanCodeTable.tsx on line 73, the key={r.original.code} 
+is causing a duplicate key React error for codes O1E1 and O1E2.
 
-Stage 2 — Frontend status
+Fix 1 — Frontend: change the key to use index as fallback:
+key={`${r.original.code}-${index}`}
 
-Implementation present and aligned with patterns:
-- Page: frontend/src/app/maintenance/loan-codes/page.tsx
-  - Includes page shell, toast stack (top-right), error banner, filter bar, add form, table, and delete confirmation modal.
-  - Uses shared components Button and Select with correct Tailwind classes per UI-PATTERNS.md.
-  - Calls service via hooks; no direct fetch in components.
-- Table component: frontend/src/app/maintenance/loan-codes/components/LoanCodeTable.tsx
-  - Always-rendered inputs disabled when not editing, read-only PK, Edit/Save/Delete actions, loading skeleton, empty state, per-row error.
-- Hooks: frontend/src/hooks/useLoanCodes.ts
-  - useEffect + service pattern (no react-query). Exposes { categories/items, loading, error, reload } and refetches on filter changes.
-- Service: frontend/src/services/api/loanCodes.ts
-  - Endpoints match backend controller: /api/v1/loan-codes and /categories. Includes conflict/not-found helpers.
-- Route-local types: frontend/src/app/maintenance/loan-codes/types.ts (imported by page.tsx and component).
+Fix 2 — Backend: check SqlLoanCodeRepository.GetLibraryAsync 
+SQL query. Add DISTINCT or verify there is no accidental 
+duplication in the SELECT. The query should return each 
+Loan_code exactly once.
 
-Readiness and conformance:
-- Auth: Page relies on backend policy enforcement; no client-side policy code, consistent with AGENTS.md.
-- Patterns: All UI structure and classes match UI-PATTERNS.md (toast, error banner, filter, add form grid, table helpers, modal).
-- Data flow: Filter triggers re-fetch via useLoanCodeLibrary; add/edit/delete update local state; toasts and errors rendered per spec.
-
-Next test steps (manual verification):
-- Start backend, ensure DI registration for ILoanCodeRepository → SqlLoanCodeRepository (already added in StartupExtensions.AddDataProviders).
-- Start frontend with NEXT_PUBLIC_API_URL configured; navigate to /maintenance/loan-codes.
-- Validate:
-  - Load categories and list; filter re-fetches.
-  - Create enforces Code and Category; 409 conflict shows createError message.
-  - Inline edit: Edit → Save/Cancel; PK remains read-only.
-  - Delete opens modal with Cancel/Confirm; success removes row; cancel no-op.
-  - Success toasts appear and auto-dismiss; error banner shows on load failures; per-row errors on save/delete failures.
-
-Stage 2 is implemented in the repository and ready for end-to-end testing with the backend.
+Provide both fixes.
