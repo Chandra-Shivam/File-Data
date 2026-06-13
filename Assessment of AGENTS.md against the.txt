@@ -1,163 +1,66 @@
-Assessment of AGENTS.md against the actual repository
+Reassessment complete after your updates.
 
-Verdict: Partially aligned at a high level (Next.js frontend + .NET backend in a monorepo), but multiple sections are out of sync with the codebase and conventions actually used. Below is an evidence-based comparison and concrete improvements.
+Conclusion
+AGENTS.md is now largely aligned with the repository’s actual structure and conventions. The major previously noted mismatches (authentication model, ORM/repository pattern, API versioning, folder layout, CI folders) have been corrected to reflect the codebase. One material discrepancy remains in the frontend dependency policy.
 
-What matches
-
+What matches now (with evidence)
 - Monorepo and folders
-  - AGENTS lists: frontend/, backend/, docs/, discovery/, pipelines/, scripts/, tools/, legacy/. All are present at the repo root.
+  - Document lists frontend/, backend/, docs/, discovery/, pipelines/, azure-pipelines/, scripts/, tools/, legacy/. All are present at the root.
 
-- Frontend platform and config
-  - Next.js App Router present: frontend/src/app/ exists; many pages under app/.
-  - TypeScript and Tailwind present: frontend/tsconfig.json, tailwind.config.ts, postcss.config.js, next.config.mjs exist.
-  - Common frontend structure folders exist: frontend/src/components, hooks, models, services, lib, auth.
+- Authentication (Azure AD JWT + policies)
+  - AGENTS.md explicitly documents Azure AD JWT Bearer via Microsoft.Identity.Web and named policies.
+  - Code wires Microsoft.Identity.Web / JWT bearer and policies:
+    - backend/src/Casrr.Api/Program.cs and backend/src/Casrr.Api/Extensions/StartupExtensions.cs (AddMicrosoftIdentityWebApi / AddJwtBearer, AddAuthorizationPolicies).
+  - Controllers use policy-based authorization:
+    - Example: backend/src/Casrr.Api/Controllers/CovenantsController.cs → [Authorize(Policy = "RequireActiveUser")].
+  - Swagger security schemes reflect Bearer and Graph tokens.
 
-- Backend solution and layering (at a high level)
-  - Solution file exists: casrr.sln.
-  - Projects exist for API, Application, Domain, Infrastructure under backend/src.
-  - Controllers exist and use [Authorize] policies in at least some controllers (example below).
+- Data access pattern (raw ADO.NET + optional Dapper)
+  - AGENTS.md states repositories use SqlClient/Dapper; EF DbContext exists but is not the default repository pattern.
+  - Code uses raw ADO.NET:
+    - backend/src/Casrr.Infrastructure/SqlServer/SqlCovenantsRepository.cs uses SqlConnection/SqlCommand/SqlParameter.
+  - Dapper.dll appears in API bin output.
 
-Key differences and inaccuracies (with evidence)
+- Project structure and layering
+  - AGENTS.md now states 4 core projects + tests; repo has Casrr.Api, Casrr.Application, Casrr.Domain, Casrr.Infrastructure plus test projects under backend/Unit Tests/.
+  - Application interfaces live at the project root (not under Interfaces/) — matches AGENTS.md.
+  - Contracts/DTOs live under Casrr.Application/Reviews/Contracts/ — matches AGENTS.md’s “Contracts” location.
+  - Infrastructure repositories under Casrr.Infrastructure/SqlServer/ — matches AGENTS.md.
 
-1) Authentication model (document says Windows/AD without JWT; code uses AAD JWT + policies and Graph)
-   - AGENTS.md: “Authentication — Windows / AD Authentication; [Authorize] on all controllers. No JWT, no cookies.”
-   - Actual:
-     - Program wiring uses JWT bearer/AAD via Microsoft.Identity.Web:
-       - backend/src/Casrr.Api/Extensions/StartupExtensions.cs → AddAuthenticationConfigured uses AddMicrosoftIdentityWebApi or AddJwtBearer.
-     - Swagger includes “Bearer” and Graph token schemes.
-     - Controllers require policies:
-       - Example: backend/src/Casrr.Api/Controllers/CovenantsController.cs has [Authorize(Policy = "RequireActiveUser")].
-     - Graph dependencies present:
-       - backend/src/Casrr.Api/Auth/Graph/*, plus registrations in Program/Startup.
-   - Conclusion: Update doc to reflect Azure AD JWT bearer with authorization policies and optional Graph usage; remove “No JWT”.
+- API design and versioning
+  - AGENTS.md standardizes on /api/v1/{resource} and includes /categories and /types endpoints.
+  - Code uses versioned routes: CovenantsController → [Route("api/v1/covenants")].
 
-2) Data access/ORM (document mandates EF Core-only; code uses raw ADO.NET and likely Dapper)
-   - AGENTS.md: “ORM — Entity Framework Core. No Dapper, no raw ADO.NET, no stored procedures. Lives in Infrastructure.”
-   - Actual:
-     - Repositories use SqlClient with SQL strings:
-       - backend/src/Casrr.Infrastructure/SqlServer/SqlCovenantsRepository.cs uses SqlConnection/SqlCommand extensively (raw ADO.NET).
-     - Dapper.dll is in API bin output (Casrr.Api/bin/Debug/net8.0/Dapper.dll), indicating Dapper is referenced somewhere in the solution.
-     - An EF DbContext is registered (AddDbContextPool<CasrrDbContext>), but repository implementations found are ADO.NET-based.
-   - Conclusion: Either the code should be refactored to the EF Core pattern in AGENTS.md, or AGENTS.md must be updated to reflect current ADO.NET/Dapper repository approach.
+- Error handling
+  - AGENTS.md prescribes ProblemDetails. Code returns ProblemDetails with telemetry and logging (see CovenantsController).
 
-3) Backend project count and structure (document says “7 projects”; repo has 4 core + tests)
-   - AGENTS.md: “Solution — 7 projects.”
-   - Actual:
-     - backend/src contains: Casrr.Api, Casrr.Application, Casrr.Domain, Casrr.Infrastructure.
-     - Tests exist under backend/Unit Tests/… but not counted as part of “7”.
-   - Conclusion: Replace “7 projects” with an exact current list of projects (4 core + list the test projects explicitly if needed).
+- Database environment policy
+  - AGENTS.md clarifies Local may use Access; non-Local must use SQL. Code enforces this policy in DataExtensions (StartupExtensions).
 
-4) API route standards (document suggests versionless /api/{resource}; code uses versioned /api/v1)
-   - AGENTS.md: Endpoint examples without version segment (e.g., /api/loan-codes).
-   - Actual:
-     - Example: CovenantsController route is [Route("api/v1/covenants")].
-   - Conclusion: Update doc to standardize on versioned routes (/api/v1/{resource}) if that is the current convention, or adjust controllers.
+- Frontend structure and conventions
+  - Co-located route components and hooks are allowed (review route has extensive co-location).
+  - Service files live at frontend/src/services/api/<resource>.ts without “Service” suffix (e.g., covenants.ts).
+  - Route-local types allowed via types.ts (e.g., app/admin/users/types.ts).
+  - Next.js App Router and Tailwind present and configured.
 
-5) Backend layering details and folder conventions
-   - AGENTS.md expects:
-     - Application/Interfaces/I<Entity>Repository.cs
-     - Infrastructure/Persistence/Configurations/<Entity>Configuration.cs with EF
-     - Domain entities with no EF attributes
-   - Actual:
-     - Application interface files live at Application root (e.g., backend/src/Casrr.Application/ICovenantsRepository.cs), not under Interfaces/.
-     - Infrastructure repositories live under Infrastructure/SqlServer/* with raw SQL.
-     - No EF IEntityTypeConfiguration files were seen in the listing; DbContext class exists as Backend_TemplateDbContext.cs but the implementation pattern is not the one mandated.
-   - Conclusion: Either move interfaces into an Interfaces/ folder and implement EF configuration as documented, or update AGENTS.md to reflect the current ADO.NET repository layout under Infrastructure/SqlServer.
+Remaining discrepancies or risks
+1) Frontend dependency violates “No React Query” rule
+  - AGENTS.md → Data Fetching: “useEffect + native fetch. No axios, React Query, SWR, or RTK Query.”
+  - Repository: frontend/package.json includes "@tanstack/react-query": "^5.29.0".
+  - Action: Either remove @tanstack/react-query and refactor any usage to native fetch + custom hooks/services, or revise AGENTS.md to allow React Query. Since AGENTS.md says the rule is non-negotiable, the correct alignment is to remove the dependency and any usage.
 
-6) Frontend service/hook and file-location conventions
-   - AGENTS.md expects:
-     - Services in frontend/src/services/ with Service suffix (e.g., loanCodesService.ts).
-     - All types/interfaces under frontend/src/models/ (no local types in pages/components).
-     - Page-specific components under components/<feature>/ subfolder.
-   - Actual:
-     - Services live under frontend/src/services/api/ and are named by resource (e.g., covenants.ts, samples.ts) without “Service” suffix.
-     - Local types file present under a route: frontend/src/app/admin/users/types.ts (contradicts “all models under src/models”).
-     - Many page-specific components are co-located under route folders:
-       - Example: frontend/src/app/review/[ecif]/review-info/components/* are inside the app route, not under src/components/<feature>/.
-   - Conclusion:
-     - Either move local types into frontend/src/models and enforce centralized typing, and move page-specific components under components/<feature>/ to align with AGENTS.md, or update AGENTS.md to permit route-level co-location of components and local types where appropriate. Given Next.js App Router norms, updating AGENTS.md to allow co-location is likely more pragmatic.
+2) Registration wording
+  - AGENTS.md “Register I<Entity>Repository → Sql<Entity>Repository in Program.cs (Casrr.Api)”.
+  - Code performs registrations inside StartupExtensions.AddDataProviders(), which is invoked from Program.cs.
+  - Suggestion: Clarify wording to “Register in StartupExtensions.AddDataProviders (invoked from Program.cs)” to match the implementation and avoid confusion for future additions.
 
-7) CI/CD folder naming
-   - AGENTS.md mentions pipelines/ but not azure-pipelines/.
-   - Actual:
-     - Both pipelines/ and azure-pipelines/ exist with templates/variables.
-   - Conclusion: Acknowledge azure-pipelines/ in the doc or clarify where pipeline definitions live to avoid drift.
+Recommended follow-up validations
+- Verify there are no imports of '@tanstack/react-query' and no useQuery/useMutation in frontend/src. If present, refactor to native fetch in services/api/*.ts and feature hooks. Remove the dependency from package.json after refactor.
+- Spot-check a couple of maintenance pages to ensure they:
+  - Use a service + hook layer (no direct fetch in components).
+  - Use ProblemDetails error handling conventions on the backend endpoints they call.
+  - Use /api/v1/ in their service URLs.
 
-8) Database source toggles
-   - AGENTS.md: Only “Server: SQL Server”.
-   - Actual:
-     - Startup supports multiple data sources and explicitly enforces “non-Local cannot use Access.” DataExtensions reads Data:* settings, allows “Access” in Local, and otherwise throws if Access is selected.
-   - Conclusion: Update the Database section to reflect the environment policy (Local may use Access repositories, non-Local must use SQL).
-
-9) API error/response shapes and policies
-   - AGENTS.md defines simple response shapes; code uses ProblemDetails in controllers for errors and tracks telemetry.
-   - Actual:
-     - Example in CovenantsController: returns ProblemDetails with structured extensions and logs exceptions.
-   - Conclusion: Consider updating doc to bless ProblemDetails for errors and the policy-based authorization approach already in use.
-
-10) Output order and DTO placement
-   - AGENTS.md mandates DTOs under Casrr.Application/DTOs/<Feature>/… and a strict AI file delivery order.
-   - Actual:
-     - Application has Reviews/Contracts and Services, not DTOs in the specified DTOs/ folder. Interfaces are at the project root.
-   - Conclusion: Either realign Application layer to the DTOs folder structure or update AGENTS.md to reflect the current layout (Contracts/Services with interfaces at root).
-
-Concrete improvements to AGENTS.md
-
-- Authentication section:
-  - Replace “Windows/AD only; no JWT” with “Azure AD JWT Bearer authentication via Microsoft.Identity.Web; policies enforced (e.g., RequireActiveUser, Commercial.Admin, Commercial.ReadOnly). All controllers require [Authorize] with appropriate policy.” Document the diagnostics endpoints and Swagger security schemes already present.
-
-- ORM and repositories:
-  - Either:
-    - Option A (update code): Migrate repositories to EF Core with DbContext and IEntityTypeConfiguration<T>, aligning with the document; or
-    - Option B (update document, pragmatic): State that repositories use raw SQL via SqlClient and may use Dapper for mapping/perf; EF Core DbContext is available for selected scenarios; no stored procedures unless approved.
-  - Whichever you select, ensure consistency across Infrastructure and update naming/locations accordingly.
-
-- Project inventory:
-  - Replace “7 projects” with an explicit list of current projects:
-    - Casrr.Api, Casrr.Application, Casrr.Domain, Casrr.Infrastructure
-    - Tests: Casrr.Api.Tests, Casrr.Application.Tests, Casrr.Domain.Tests, Casrr.Infrastructure.Tests (if applicable)
-  - Keep this section source-of-truth and update when projects change.
-
-- Routing standard:
-  - Adopt versioned routes in the doc: /api/v1/{resource}/… to match controllers. Document categories and other ancillary endpoints (e.g., /categories, /types).
-
-- Backend folder conventions:
-  - Reflect actual locations:
-    - Application interfaces currently at project root (e.g., ICovenantsRepository.cs).
-    - Infrastructure repositories under SqlServer/.
-    - DbContext file naming and location (e.g., Infrastructure/SqlServer/Backend_TemplateDbContext.cs providing CasrrDbContext).
-  - If you prefer the original structure, add “DEVELOPER: Relocate interfaces to Application/Interfaces and create EF configurations under Infrastructure/Persistence/Configurations before adding new features.”
-
-- Frontend conventions:
-  - Services: Recognize existing pattern frontend/src/services/api/<resource>.ts (native fetch).
-  - Hooks: Co-located hooks under route trees (e.g., app/review/[ecif]/review-info/components/sections/hooks/*) are permitted.
-  - Types: Either enforce moving route-local types into frontend/src/models or explicitly allow route-local types files for feature-scoped models; pick one approach and state it clearly.
-  - Components: Allow co-location of page-specific components under app/<route>/**/components; reserve src/components for shared UI.
-
-- CI/CD:
-  - Mention both pipelines/ and azure-pipelines/, and where environment variables/templates live.
-
-- Database environment policy:
-  - Document “Local-only Access repositories allowed; non-Local requires SQL” to match DataExtensions.
-
-- Error handling:
-  - Bless the ProblemDetails pattern and telemetry tracking used in controllers.
-
-- Naming and examples:
-  - Update examples for service naming (drop “Service” suffix to match current code), and route examples to include versioning.
-
-Clear examples from the repo (for reference)
-
-- Controllers and authorization:
-  - backend/src/Casrr.Api/Controllers/CovenantsController.cs → [Authorize(Policy = "RequireActiveUser")], route “api/v1/covenants”, endpoints include /categories, /types/{category}.
-- Authentication and pipeline:
-  - backend/src/Casrr.Api/Program.cs and Extensions/StartupExtensions.cs → AddMicrosoftIdentityWebApi/AddJwtBearer; Swagger Bearer and Graph security schemes; UseAuthentication/UseAuthorization gated by config flag.
-- Data access:
-  - backend/src/Casrr.Infrastructure/SqlServer/SqlCovenantsRepository.cs → raw ADO.NET with SqlCommand/SqlParameter; no EF mapping in use for these operations.
-- Frontend routing and structure:
-  - Frontend maintenance pages match path pattern: frontend/src/app/maintenance/covenants/page.tsx etc.
-  - Co-located review UI and hooks under app/review/[ecif]/review-info/components/**.
-
-Bottom line
-
-AGENTS.md is directionally useful but out of sync on several critical points (auth model, ORM/repository pattern, project count, routing/versioning, and frontend file-location/type placement). It should be revised to reflect the repository’s current implementations and conventions. Alternatively, if the AGENTS.md is the intended target architecture, then several areas of the codebase should be refactored to conform (auth from JWT to Windows/AD; data access from ADO.NET/Dapper to EF Core; relocate Application/Interfaces; move types to frontend/src/models; adjust component placement). Choose one path and make the doc/code consistent to avoid developer confusion and drift.
+Summary
+- AGENTS.md has been updated to reflect the project accurately in all key architecture and policy areas (auth, data access, layering, API versioning, frontend structure, CI folders, database environment policy).
+- The primary outstanding inconsistency is the presence of @tanstack/react-query in frontend/package.json despite the documented prohibition. Align by removing the dependency and any usage to fully comply with AGENTS.md.
