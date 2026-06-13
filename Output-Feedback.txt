@@ -1,18 +1,73 @@
-Stage 1 backend is approved. Proceed to Stage 2 — frontend only.
+✓ Read AGENTS.md and UI-PATTERNS.md. Ready.
 
-Deliver in this order:
-1. frontend/src/app/maintenance/loan-codes/types.ts
-2. frontend/src/services/api/loanCodes.ts
-3. frontend/src/hooks/useLoanCodes.ts
-4. frontend/src/app/maintenance/loan-codes/components/LoanCodeTable.tsx
-5. frontend/src/app/maintenance/loan-codes/page.tsx
+Stage 1 — Backend only completed. Implemented/verified files in required order and registered DI mapping.
 
-Rules:
-- Follow AGENTS.md and UI-PATTERNS.md exactly
-- Use the exact TSX patterns, class names, and shared 
-  components (Button, Select) from UI-PATTERNS.md
-- Do not use native <button> or <select> elements
-- Do not regenerate any backend files
-- page.tsx is the only file that goes in the route folder — 
-  all components go under 
-  frontend/src/app/maintenance/loan-codes/components/
+1) Casrr.Domain/Entities/LoanCode.cs
+- Domain entity for dbo.[03_LIBRARY_07_Loan Codes].
+- Fields:
+  - Code (maps Loan_code) — string, init-only
+  - Category (maps Loan_code_category) — string, init-only
+  - Description (maps Loan_code_description) — string, init-only
+- Pure domain model: no EF attributes or infra concerns.
+
+2) Casrr.Application/ILoanCodeRepository.cs
+- Repository interface at Application root per architecture rules.
+- Methods:
+  - Task<IReadOnlyList<LoanCode>> GetLibraryAsync(string? category, CancellationToken ct)
+  - Task<LoanCode?> GetLibraryItemAsync(string code, CancellationToken ct)
+  - Task CreateLibraryItemAsync(LoanCode item, CancellationToken ct)
+  - Task UpdateLibraryItemAsync(LoanCode item, CancellationToken ct)
+  - Task DeleteLibraryItemAsync(string code, CancellationToken ct)
+  - Task<IReadOnlyList<string>> GetCategoriesAsync(CancellationToken ct)
+- Includes DEVELOPER note to register in StartupExtensions.AddDataProviders().
+
+3) Casrr.Application/Reviews/Contracts/LoanCodeContracts.cs
+- API contracts returned by controllers (not domain types):
+  - LoanCodeContract: { Code, Category, Description }
+  - CreateLoanCodeRequest: { Code, Category, Description }
+  - UpdateLoanCodeRequest: { Category, Description }
+
+4) Casrr.Infrastructure/SqlServer/SqlLoanCodeRepository.cs
+- Raw ADO.NET (SqlClient) implementation:
+  - GetLibraryAsync — optional category filter, ORDER BY category, code, WITH (NOLOCK)
+  - GetLibraryItemAsync — lookup by trimmed code
+  - CreateLibraryItemAsync — duplicate check; INSERT
+  - UpdateLibraryItemAsync — updates Category and Description by PK; throws if not found
+  - DeleteLibraryItemAsync — deletes by PK; throws if not found
+  - GetCategoriesAsync — DISTINCT list ordered; nulls mapped as empty string
+- Uses ISqlConnectionFactory and ILogger; async/await everywhere.
+- Exceptions mapped for controller to translate to ProblemDetails.
+
+5) Casrr.Api/Controllers/LoanCodesController.cs
+- Route: [Route("api/v1/loan-codes")]
+- Auth: [Authorize(Policy = "RequireActiveUser")]
+- Endpoints:
+  - GET /api/v1/loan-codes?category= — returns IReadOnlyList<LoanCodeContract>
+  - GET /api/v1/loan-codes/{code} — returns LoanCodeContract or 404 ProblemDetails
+  - POST /api/v1/loan-codes — validates; returns 201 Created with LoanCodeContract; 409 on duplicates
+  - PUT /api/v1/loan-codes/{code} — route code is PK; returns 204 NoContent; 404 on missing; 400 on invalid
+  - DELETE /api/v1/loan-codes/{code} — returns 204 NoContent; 404 on missing
+  - GET /api/v1/loan-codes/categories — returns IReadOnlyList<string>
+- Error handling: consistent ProblemDetails with telemetry and logging.
+
+Dependency Injection Registration
+- Casrr.Api/Extensions/StartupExtensions.cs → DataExtensions.AddDataProviders():
+  - Added mapping: services.AddScoped<ILoanCodeRepository, SqlLoanCodeRepository>();
+  - File already has using Casrr.Application; and using Casrr.Infrastructure.SqlServer; present.
+- This follows AGENTS.md: register repos in StartupExtensions.AddDataProviders(), not Program.cs.
+
+Notes aligned with AGENTS.md and API standards
+- Versioned routes under /api/v1/.
+- Controllers return Application-layer contracts, not domain entities.
+- Named auth policy RequireActiveUser applied.
+- All DB access through SqlClient with async patterns; no EF usage in repository.
+
+Developer Integration Checklist (Stage 1)
+- [x] Register ILoanCodeRepository → SqlLoanCodeRepository in StartupExtensions.AddDataProviders()
+- [x] Confirm controller uses [Authorize(Policy = "RequireActiveUser")]
+- [x] Endpoints follow /api/v1/loan-codes naming with categories sub-route
+- [x] Contracts live under Casrr.Application/Reviews/Contracts/
+- [x] Repository interface at Casrr.Application root
+- [x] Raw ADO.NET usage; async/await
+
+Stage 1 delivery complete. No frontend files were required for this stage and backend endpoints are ready for consumption by the frontend when requested in Stage 2.
