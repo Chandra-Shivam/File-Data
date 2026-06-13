@@ -1,66 +1,47 @@
-Reassessment complete after your updates.
+Reassessment result
 
-Conclusion
-AGENTS.md is now largely aligned with the repository’s actual structure and conventions. The major previously noted mismatches (authentication model, ORM/repository pattern, API versioning, folder layout, CI folders) have been corrected to reflect the codebase. One material discrepancy remains in the frontend dependency policy.
+Verdict: AGENTS.md is now aligned with the actual repository in all material areas. The previously reported mismatches (authentication model, API versioning, repository pattern, project structure, CI folders, frontend co-location rules, DI registration location) have been corrected to reflect the codebase. Only minor refinements are suggested below.
 
-What matches now (with evidence)
-- Monorepo and folders
-  - Document lists frontend/, backend/, docs/, discovery/, pipelines/, azure-pipelines/, scripts/, tools/, legacy/. All are present at the root.
+Confirmed alignments (evidence-based)
+- Authentication and authorization
+  - Azure AD JWT via Microsoft.Identity.Web is documented and matches Program/StartupExtensions.
+  - Controllers use named policies (e.g., RequireActiveUser), consistent with existing controllers.
+  - Swagger Bearer/Graph schemes are acknowledged.
 
-- Authentication (Azure AD JWT + policies)
-  - AGENTS.md explicitly documents Azure AD JWT Bearer via Microsoft.Identity.Web and named policies.
-  - Code wires Microsoft.Identity.Web / JWT bearer and policies:
-    - backend/src/Casrr.Api/Program.cs and backend/src/Casrr.Api/Extensions/StartupExtensions.cs (AddMicrosoftIdentityWebApi / AddJwtBearer, AddAuthorizationPolicies).
-  - Controllers use policy-based authorization:
-    - Example: backend/src/Casrr.Api/Controllers/CovenantsController.cs → [Authorize(Policy = "RequireActiveUser")].
-  - Swagger security schemes reflect Bearer and Graph tokens.
+- Data access and architecture
+  - Repositories use raw ADO.NET (SqlClient), optional Dapper; EF DbContext exists but is not the default. Matches Infrastructure/SqlServer/* repositories.
+  - Clean layering matches actual layout: interfaces at Casrr.Application root, contracts under Reviews/Contracts, repositories in Infrastructure/SqlServer, controllers in Api/Controllers.
+  - DI registration called out in StartupExtensions.AddDataProviders(), matching how repositories are currently registered.
 
-- Data access pattern (raw ADO.NET + optional Dapper)
-  - AGENTS.md states repositories use SqlClient/Dapper; EF DbContext exists but is not the default repository pattern.
-  - Code uses raw ADO.NET:
-    - backend/src/Casrr.Infrastructure/SqlServer/SqlCovenantsRepository.cs uses SqlConnection/SqlCommand/SqlParameter.
-  - Dapper.dll appears in API bin output.
-
-- Project structure and layering
-  - AGENTS.md now states 4 core projects + tests; repo has Casrr.Api, Casrr.Application, Casrr.Domain, Casrr.Infrastructure plus test projects under backend/Unit Tests/.
-  - Application interfaces live at the project root (not under Interfaces/) — matches AGENTS.md.
-  - Contracts/DTOs live under Casrr.Application/Reviews/Contracts/ — matches AGENTS.md’s “Contracts” location.
-  - Infrastructure repositories under Casrr.Infrastructure/SqlServer/ — matches AGENTS.md.
-
-- API design and versioning
-  - AGENTS.md standardizes on /api/v1/{resource} and includes /categories and /types endpoints.
-  - Code uses versioned routes: CovenantsController → [Route("api/v1/covenants")].
-
-- Error handling
-  - AGENTS.md prescribes ProblemDetails. Code returns ProblemDetails with telemetry and logging (see CovenantsController).
-
-- Database environment policy
-  - AGENTS.md clarifies Local may use Access; non-Local must use SQL. Code enforces this policy in DataExtensions (StartupExtensions).
+- API design
+  - Versioned routes standardized to /api/v1/{resource}, matching controllers (e.g., CovenantsController).
+  - ProblemDetails mandated for errors; aligns with controller implementations.
 
 - Frontend structure and conventions
-  - Co-located route components and hooks are allowed (review route has extensive co-location).
-  - Service files live at frontend/src/services/api/<resource>.ts without “Service” suffix (e.g., covenants.ts).
-  - Route-local types allowed via types.ts (e.g., app/admin/users/types.ts).
-  - Next.js App Router and Tailwind present and configured.
+  - Next.js App Router structure with co-located components/hooks under app routes allowed; matches review route structure.
+  - Services under frontend/src/services/api/<resource>.ts with resource-noun filenames (no “Service” suffix) matches current code.
+  - Route-local types via types.ts allowed; shared types under src/models.
 
-Remaining discrepancies or risks
-1) Frontend dependency violates “No React Query” rule
-  - AGENTS.md → Data Fetching: “useEffect + native fetch. No axios, React Query, SWR, or RTK Query.”
-  - Repository: frontend/package.json includes "@tanstack/react-query": "^5.29.0".
-  - Action: Either remove @tanstack/react-query and refactor any usage to native fetch + custom hooks/services, or revise AGENTS.md to allow React Query. Since AGENTS.md says the rule is non-negotiable, the correct alignment is to remove the dependency and any usage.
+- Monorepo and CI
+  - Root folders list includes azure-pipelines/ alongside pipelines/.
+  - Project inventory now states 4 core projects + tests, matching the solution.
 
-2) Registration wording
-  - AGENTS.md “Register I<Entity>Repository → Sql<Entity>Repository in Program.cs (Casrr.Api)”.
-  - Code performs registrations inside StartupExtensions.AddDataProviders(), which is invoked from Program.cs.
-  - Suggestion: Clarify wording to “Register in StartupExtensions.AddDataProviders (invoked from Program.cs)” to match the implementation and avoid confusion for future additions.
+Minor differences and recommended refinements
+1) Domain vs contract return types in controllers
+  - Some controllers (e.g., CovenantsController) return domain types directly (e.g., CovenantLibraryItem) rather than explicit Application-layer contracts.
+  - Suggestion: either
+    - Permit returning domain models for simple data shapes and document this exception, or
+    - Require contracts for new endpoints and add a note to migrate older endpoints over time.
 
-Recommended follow-up validations
-- Verify there are no imports of '@tanstack/react-query' and no useQuery/useMutation in frontend/src. If present, refactor to native fetch in services/api/*.ts and feature hooks. Remove the dependency from package.json after refactor.
-- Spot-check a couple of maintenance pages to ensure they:
-  - Use a service + hook layer (no direct fetch in components).
-  - Use ProblemDetails error handling conventions on the backend endpoints they call.
-  - Use /api/v1/ in their service URLs.
+2) Contract naming convention
+  - The document suggests a “Contract” suffix in examples (e.g., LoanCodeContract.cs). Actual files in Application commonly use naming like ReviewFormSaveModels.cs.
+  - Suggestion: relax the suffix requirement or note both patterns as acceptable to avoid churn.
 
-Summary
-- AGENTS.md has been updated to reflect the project accurately in all key architecture and policy areas (auth, data access, layering, API versioning, frontend structure, CI folders, database environment policy).
-- The primary outstanding inconsistency is the presence of @tanstack/react-query in frontend/package.json despite the documented prohibition. Align by removing the dependency and any usage to fully comply with AGENTS.md.
+3) React Query presence as legacy
+  - package.json contains @tanstack/react-query. The document now explicitly allows it to remain but forbids new usage and prescribes native fetch + useEffect through the service + hook layer.
+  - Optional hardening: add a lint rule/code scan step to fail on new imports of '@tanstack/react-query' to enforce the rule.
+
+Everything else reads consistent with the repository and current engineering practices in this codebase.
+
+Conclusion
+AGENTS.md now accurately reflects the project’s actual architecture, technologies, and conventions. No blocking discrepancies remain. Consider the minor refinements above to reduce ambiguity around controller return types and contract naming; otherwise, the file is suitable to act as the project’s non-negotiable constitution.
