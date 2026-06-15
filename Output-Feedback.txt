@@ -1,37 +1,9 @@
-Findings on existing WYSIWYG/rich text editor in the frontend (reported before writing any new code):
+Findings confirmed. Proceed with Stage 2 using:
+- RichTextEditor from @/components/ui/RichTextEditor 
+  for HelpTipContent edit mode
+- readOnly={true} showToolbar={false} for view mode
+- Dialog from @/components/ui/Dialog for delete 
+  confirmation instead of a custom modal
 
-1) Shared UI library inventory (frontend/src/components/ui/)
-- Button.tsx
-- Checkbox.tsx
-- DateInputWithCalendar.tsx
-- Dialog.tsx
-- DisplayValueCell.tsx
-- icons.tsx
-- Input.tsx
-- ProgressBar.tsx
-- ReadOnlyField.tsx
-- RichTextEditor.tsx
-- SearchableSelect.tsx
-- Select.tsx
-- StatusBadge.tsx
-- ThemedLoading.tsx
-
-2) Existing editor component found
-- Path: frontend/src/components/ui/RichTextEditor.tsx
-- Summary of implementation:
-  - Client component using contentEditable and document.execCommand.
-  - Props: value: string; onChange(html: string): void; placeholder?; ariaLabel?; minHeight?; className?; readOnly?; showToolbar?
-  - Emits HTML string via onChange and renders content via dangerouslySetInnerHTML.
-  - Toolbar actions: bold, italic, underline, block format (P, H1, H2, DIV), unordered/ordered lists, link insertion, clear formatting, image insertion (from URL and file; file converted to data URL), and table insertion.
-  - Tracks and restores caret position/selection across updates; supports placeholder display and read-only mode; toolbar visibility can be toggled via showToolbar.
-
-3) Dependency check (frontend/package.json)
-- No external rich text editor packages present (no @tiptap/*, quill, slate).
-- The project-provided RichTextEditor.tsx is the existing editor to use.
-
-Conclusion
-- An in-repo WYSIWYG editor already exists: frontend/src/components/ui/RichTextEditor.tsx.
-- For Help Tips:
-  - View mode will render HelpTipContent with dangerouslySetInnerHTML.
-  - Edit mode will use the existing RichTextEditor component.
-- Next, Stage 2 implementation will proceed in the specified order using this existing component and the shared Button and Select components, without introducing new dependencies.
+Deliver the 5 files in the order specified.
+No new dependencies. No backend files.
