@@ -1,76 +1,38 @@
-Stage 1 completed (Backend only) per AGENTS.md and UI-PATTERNS.md.
+Stage 1 backend is approved. Proceed to Stage 2 — 
+frontend only.
 
-Delivered in required order:
-1) Casrr.Domain/Entities/HelpTip.cs
-- Pure domain model for dbo.[03_LIBRARY_06_Help Tips]
-- Properties: Id (int, identity), Form (string), Topic (string), HelpTipContent (HTML string)
-- SSMA_TimeStamp excluded as required
+IMPORTANT: Before writing any code, check 
+frontend/src/components/ui/ and the rest of the 
+frontend codebase for an existing WYSIWYG or rich 
+text editor component. Report exactly what you find 
+before writing anything.
 
-2) Casrr.Application/IHelpTipRepository.cs
-- Interface methods:
-  - GetLibraryAsync(string? form, string? topic, CancellationToken)
-  - GetLibraryItemAsync(int id, CancellationToken)
-  - CreateLibraryItemAsync(HelpTip item, CancellationToken) → returns created HelpTip with generated ID
-  - UpdateLibraryItemAsync(HelpTip item, CancellationToken)
-  - DeleteLibraryItemAsync(int id, CancellationToken)
-- DEVELOPER note to register in StartupExtensions.AddDataProviders()
+Deliver in this order:
+1. frontend/src/app/maintenance/help-tips/types.ts
+2. frontend/src/services/api/helpTips.ts
+3. frontend/src/hooks/useHelpTips.ts
+4. frontend/src/app/maintenance/help-tips/components/HelpTipTable.tsx
+5. frontend/src/app/maintenance/help-tips/page.tsx
 
-3) Casrr.Application/Reviews/Contracts/HelpTipContracts.cs
-- HelpTipContract: { Id, Form, Topic, HelpTipContent }
-- CreateHelpTipRequest: { Form, Topic, HelpTipContent }
-- UpdateHelpTipRequest: { Form, Topic, HelpTipContent }
-- Matches naming and placement conventions
-
-4) Casrr.Infrastructure/SqlServer/SqlHelpTipRepository.cs
-- Raw ADO.NET implementation
-- Create uses OUTPUT INSERTED.Help_tip_id to return generated ID
-- GetLibraryAsync supports optional filtering by Help_tip_form and Help_tip_topic
-- Help_tip column stored and retrieved as-is (NVARCHAR(MAX)), passed through to domain model
-
-5) Casrr.Api/Controllers/HelpTipsController.cs
-- Route: api/v1/help-tips
-- Auth: [Authorize(Policy = "RequireActiveUser")]
-- Endpoints:
-  - GET /api/v1/help-tips?form=&topic= → HelpTipContract[]
-  - GET /api/v1/help-tips/{id} → HelpTipContract
-  - POST /api/v1/help-tips → 201 Created with HelpTipContract including generated ID
-  - PUT /api/v1/help-tips/{id} → 204 No Content
-  - DELETE /api/v1/help-tips/{id} → 204 No Content
-- Uses ProblemDetails for errors; mirrors pattern from LoanCodesController
-- Returns Application-layer contracts (not domain types)
-
-Additional integration performed:
-- Registered repository in DI:
-  - StartupExtensions.AddDataProviders(): services.AddScoped&lt;IHelpTipRepository, SqlHelpTipRepository&gt;();
-
-Files created/modified:
-- backend/src/Casrr.Domain/Entities/HelpTip.cs
-- backend/src/Casrr.Application/IHelpTipRepository.cs
-- backend/src/Casrr.Application/Reviews/Contracts/HelpTipContracts.cs
-- backend/src/Casrr.Infrastructure/SqlServer/SqlHelpTipRepository.cs
-- backend/src/Casrr.Api/Controllers/HelpTipsController.cs
-- backend/src/Casrr.Api/Extensions/StartupExtensions.cs (DI registration added)
-
-Behavioral notes met:
-- Help_tip stored as HTML string, passed through without transformation
-- No EF used for repository; raw SqlClient throughout
-- Async/await used for all DB calls
-- Follows Clean Architecture layer boundaries
-- Uses existing policy RequireActiveUser
-- Resource naming and versioned endpoints follow /api/v1/ pattern
-
-## Developer Integration Checklist
-
-### Backend
-- [ ] Register I&lt;Entity&gt;Repository → Sql&lt;Entity&gt;Repository in StartupExtensions.AddDataProviders() (Casrr.Api/Extensions/StartupExtensions.cs)
-- [ ] Add DbSet&lt;&lt;Entity&gt;&gt; to CasrrDbContext in Infrastructure/SqlServer/ only if EF is used
-- [ ] Confirm which [Authorize(Policy = "...")] applies and add it to the controller
-- [ ] Verify SQL connection string name matches existing config in appsettings.json
-- [ ] Run Add-Migration only if EF schema changed (flag was added in code)
-
-### Frontend
-- [ ] Create folder: frontend/src/app/maintenance/&lt;feature-name&gt;/
-- [ ] Verify 'use client' directive is present on all interactive components
-- [ ] Verify service file base URL matches NEXT_PUBLIC_API_URL in .env.local
-- [ ] Verify API route uses /api/v1/ prefix
-- [ ] Test: load, add, inline edit + save, inline edit + cancel, delete + confirm, delete + cancel
+Rules:
+- Follow AGENTS.md and UI-PATTERNS.md exactly
+- Use Button and Select shared components — no native 
+  <button> or <select>
+- Filter bar has TWO filters: Form (text) and Topic (text) 
+  — both trigger API re-fetch via useEffect
+- Row state uses flat top-level fields — not nested 
+  r.edited object
+- Help_tip_id is the PK — read-only everywhere, never 
+  an input
+- View mode for HelpTipContent: render as HTML using 
+  dangerouslySetInnerHTML — never show raw HTML tags
+- Edit mode for HelpTipContent: WYSIWYG rich text editor
+  - If an existing editor component is found in the 
+    project, use it
+  - If none exists, use @tiptap/react with 
+    StarterKit extension — add 
+    // NEW DEPENDENCY: @tiptap/react, @tiptap/starter-kit
+    comment at the top of the file
+- Delete confirmation uses the modal pattern from 
+  UI-PATTERNS.md Section 9
+- Do not regenerate any backend files
