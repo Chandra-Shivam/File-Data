@@ -1,42 +1,108 @@
-STOP. Do not summarize. Do not touch any backend files.
-Do not rewrite the whole file.
+Assessment goal:
+Evaluate whether AGENTS.md and UI-PATTERNS.md are aligned with each other and with the current implementation, using representative pages in the repo.
 
-Apply these two targeted fixes to 
-frontend/src/components/ui/RichTextEditor.tsx only:
+Files inspected from the current implementation:
+- frontend/src/app/maintenance/covenants/page.tsx
+- frontend/src/app/maintenance/cas-findings/page.tsx
 
-FIX 1 — Remove dangerouslySetInnerHTML from the 
-contentEditable div.
+High-level verdict:
+- AGENTS.md and UI-PATTERNS.md are not fully aligned with each other.
+- The current implementation follows several UI-PATTERNS.md directives, but also deviates from UI-PATTERNS.md in multiple key areas. It also diverges from AGENTS.md in others.
+- Net result: partial alignment; there are explicit conflicts and drift.
 
-BEFORE:
-<div
-  ref={editorRef}
-  contentEditable
-  suppressContentEditableWarning
-  dangerouslySetInnerHTML={{ __html: value }}
-  onInput={handleInput}
-/>
+Evidence-based details:
 
-AFTER:
-<div
-  ref={editorRef}
-  contentEditable
-  suppressContentEditableWarning
-  onInput={handleInput}
-/>
+Where implementation aligns with UI-PATTERNS.md:
+- Shared components:
+  - Uses shared Button and Select components from '@/components/ui' in both pages.
+    - Example: import Select from '@/components/ui/Select'; import { Button } from '@/components/ui/Button'
+- Delete confirmation:
+  - Uses modal overlay with focus trap and ESC/Tab handling.
+    - Example: both pages implement confirmOpen, modalRef, useEffect focus trap; modal markup with role="dialog", aria props, and backdrop.
+- Toast system:
+  - Uses toast array with IDs and auto-dismiss after 3 seconds.
+    - Example: type ToastMsg = { id: number; text: string; tone: 'success'|'error' }; setTimeout to remove after 3s.
+  - Uses emerald/red filled toasts for success/error as specified.
+- RowEdit shape:
+  - Flat row state with edited fields at top level (e.g., category, description/guidance) and flags (editing, dirty, saving, deleting, error).
+- Th/Td helpers and SkeletonRows:
+  - Th and Td helper components are defined at the bottom of the file and used within the table.
+  - SkeletonRows defined and rendered under a single Td colSpan row while loading.
 
-FIX 2 — Verify the useEffect has the inequality guard.
-It must look exactly like this — if it already does, 
-leave it alone. If it doesn't, fix it:
+Where implementation conflicts with UI-PATTERNS.md:
+- Toast position:
+  - UI-PATTERNS.md: top-right (class "fixed right-4 top-4").
+  - Implementation: bottom-right (class "fixed right-4 bottom-4") in both pages.
+- Page shell title and header styling:
+  - UI-PATTERNS.md: Title "text-xl font-semibold text-slate-800".
+  - Implementation: Header card with "text-2xl font-bold text-slate-900" and brand-styled elements; diverges from exact pattern and classes.
+- Table header and color system:
+  - UI-PATTERNS.md: thead "bg-slate-50 text-slate-600".
+  - Implementation: thead uses brand blue "bg-[#1F3864]" with "text-white", sticky header; Th has border-[#172a4b]. This introduces custom brand color not specified by UI-PATTERNS.md which standardizes on slate/emerald.
+- Table scroll wrapper:
+  - UI-PATTERNS.md: "overflow-auto".
+  - Implementation: "relative overflow-x-auto".
+- Inputs always rendered and disabled for view mode:
+  - UI-PATTERNS.md mandates always render inputs/selects and toggle disabled for view mode.
+  - Implementation conditionally renders spans for view mode and inputs/selects only in edit mode (e.g., category badge text, plain text for non-editing description/guidance), which deviates from the "always rendered" pattern.
+- Add New form location and form tag usage:
+  - UI-PATTERNS.md: Add New [Entity] form is a card/section above the table; explicitly says NEVER use <form> tags—use a button click handler instead.
+  - Implementation:
+    - Both pages implement an inline "add" row inside the table instead of a separate form section card; this diverges from the standard layout.
+    - cas-findings/page.tsx wraps inline add controls in a <form onSubmit={handleCreate}> (violating the “never use form” rule).
+    - covenants/page.tsx uses inline add with onClick (no <form>)—still inline row rather than a card section.
+- Label and size classes:
+  - UI-PATTERNS.md uses text-xs for labels; implementation frequently uses text-[11px] (slight but explicit deviation).
 
-useEffect(() => {
-  const el = editorRef.current;
-  if (el && el.innerHTML !== value) {
-    el.innerHTML = value ?? '';
-  }
-}, [value]);
+Where implementation aligns with AGENTS.md vs conflicts:
+- Aligns with AGENTS.md:
+  - Next.js App Router, TypeScript, Tailwind in place.
+  - Inline editing and delete flows exist in table pages.
+  - Success/error toasts and page error banners are present.
+  - Data fetching uses useEffect + services; not react-query.
+- Conflicts with AGENTS.md:
+  - Filter behavior:
+    - AGENTS.md: Filter bar should filter the table client-side only (no API call on filter change).
+    - Implementation: Re-fetches rows via useEffect when selected filter changes (matches UI-PATTERNS.md).
+      - Examples:
+        - covenants/page.tsx: useEffect with dependency [selectedCategory] calls listLibrary(selectedCategory || undefined).
+        - cas-findings/page.tsx: useEffect with dependency [selectedComponent] calls listLibrary(selectedComponent || undefined).
+  - Error banner:
+    - AGENTS.md: dismissible error banner.
+    - Implementation: non-dismissible banner that clears with next success (matches UI-PATTERNS.md).
+  - Delete confirmation:
+    - AGENTS.md: inline row-level confirm/cancel (no window.confirm()).
+    - Implementation: modal overlay with accessibility and focus trap (matches UI-PATTERNS.md).
+  - General page layout:
+    - AGENTS.md: Add New form section above the table.
+    - Implementation: Inline add row embedded in the table for both pages.
 
-These are the only two changes.
-Do NOT remove readOnly, showToolbar, ariaLabel, 
-minHeight props.
-Do NOT rewrite the file.
-Show exact before/after for each change.
+Direct contradictions between AGENTS.md and UI-PATTERNS.md (regardless of implementation):
+- Filters:
+  - AGENTS.md: client-side only filtering.
+  - UI-PATTERNS.md: filter change triggers backend re-fetch via useEffect.
+- Delete confirmation:
+  - AGENTS.md: inline confirm within the row.
+  - UI-PATTERNS.md: modal overlay with a11y and focus trap.
+- Toasts:
+  - AGENTS.md: bottom-right, pale green classes ("bg-green-100 ... border-green-400 ... text-green-800").
+  - UI-PATTERNS.md: top-right stacked, solid emerald-600 success styling.
+- Inputs view/edit:
+  - AGENTS.md: general inline-editing rules but not explicit on always-rendered inputs.
+  - UI-PATTERNS.md: explicitly requires inputs/selects always rendered and toggled via disabled.
+
+Summary resolution:
+- The current code conforms to some UI-PATTERNS.md fundamentals (shared components, modal delete, toast state with IDs) and diverges from others (toast position, exact classes/colors, table header styling, always-rendered inputs, add form placement, form usage in CAS findings).
+- The current code actively conflicts with several AGENTS.md UI/UX mandates (client-side-only filters, inline delete confirmation, dismissible error banner, add-form placement).
+- Therefore, AGENTS.md and UI-PATTERNS.md are not aligned with each other, and the implementation matches neither document in full. The implementation is closer to UI-PATTERNS.md on behavior (modal delete, filter re-fetch, toast array) but diverges on visual and structural specifics (toast position, header classes, always-rendered inputs, add-form section vs inline row).
+
+Recommendation (documentation alignment):
+- Choose a single source of truth for frontend patterns. Given the codebase behavior, either:
+  - Update UI-PATTERNS.md to reflect actual implemented choices (bottom-right toasts; brand-blue header; overflow-x-auto; inline add row allowed; inputs may render only in edit mode; allow form use in limited cases), or
+  - Update pages to meet UI-PATTERNS.md exactly (top-right toast; slate header; overflow-auto; inputs always rendered with disabled state; add form as a card above table without form tags).
+- Reconcile conflicts with AGENTS.md by explicitly stating:
+  - Filters re-fetch via useEffect on change.
+  - Delete confirmation uses a modal overlay with focus trap.
+  - Error banner is non-dismissible and clears after a successful action.
+
+This completes the requested review based on the current implementation.
