@@ -1,68 +1,31 @@
-✓ Read AGENTS.md and UI-PATTERNS.md. Ready.
+STOP. Do not summarize Stage 1. Stage 1 is complete 
+and locked. Do not generate or mention any backend files.
 
-Stage 1 — Backend only: Complete and conforming to requirements
+Generate Stage 2 frontend files now. All 5 files, 
+complete, no truncation:
 
-1) Casrr.Domain/Entities/HelpTip.cs
-- Path: backend/src/Casrr.Domain/Entities/HelpTip.cs
-- Status: Implemented.
-- Shape: 
-  - Id (int) — DB-generated identity (Help_tip_id)
-  - Form (string) — Help_tip_form
-  - Topic (string) — Help_tip_topic
-  - HelpTipContent (string) — Help_tip (HTML string, stored as-is)
-- SSMA_TimeStamp excluded as required. No EF attributes or infrastructure concerns.
+1. frontend/src/app/maintenance/help-tips/types.ts
+2. frontend/src/services/api/helpTips.ts
+3. frontend/src/hooks/useHelpTips.ts
+4. frontend/src/app/maintenance/help-tips/components/HelpTipTable.tsx
+5. frontend/src/app/maintenance/help-tips/page.tsx
 
-2) Casrr.Application/IHelpTipRepository.cs
-- Path: backend/src/Casrr.Application/IHelpTipRepository.cs
-- Status: Implemented.
-- Methods exactly as requested:
-  - Task&lt;IReadOnlyList&lt;HelpTip&gt;&gt; GetLibraryAsync(string? form, string? topic, CancellationToken)
-  - Task&lt;HelpTip?&gt; GetLibraryItemAsync(int id, CancellationToken)
-  - Task&lt;HelpTip&gt; CreateLibraryItemAsync(HelpTip item, CancellationToken) → returns created entity with generated Id
-  - Task UpdateLibraryItemAsync(HelpTip item, CancellationToken)
-  - Task DeleteLibraryItemAsync(int id, CancellationToken)
-
-3) Casrr.Application/Reviews/Contracts/HelpTipContracts.cs
-- Path: backend/src/Casrr.Application/Reviews/Contracts/HelpTipContracts.cs
-- Status: Implemented.
-- Contracts:
-  - HelpTipContract { Id, Form, Topic, HelpTipContent }
-  - CreateHelpTipRequest { Form, Topic, HelpTipContent } (no Id)
-  - UpdateHelpTipRequest { Form, Topic, HelpTipContent } (no Id; Id comes from route)
-
-4) Casrr.Infrastructure/SqlServer/SqlHelpTipRepository.cs
-- Path: backend/src/Casrr.Infrastructure/SqlServer/SqlHelpTipRepository.cs
-- Status: Implemented with raw ADO.NET.
-- Details:
-  - Create uses OUTPUT INSERTED.Help_tip_id and returns the generated Id.
-  - GetLibraryAsync supports optional filters on Help_tip_form and Help_tip_topic (NULL ignores).
-  - Help_tip column is treated as NVARCHAR(MAX) and stored/retrieved as-is (HTML string).
-  - Async throughout; Update/Delete throw KeyNotFoundException if the item is missing.
-
-5) Casrr.Api/Controllers/HelpTipsController.cs
-- Path: backend/src/Casrr.Api/Controllers/HelpTipsController.cs
-- Status: Implemented.
-- Route: [Route("api/v1/help-tips")]
-- Auth: [Authorize(Policy = "RequireActiveUser")]
-- Endpoints and responses:
-  - GET /api/v1/help-tips?form=&amp;topic= → 200 OK (HelpTipContract[])
-  - GET /api/v1/help-tips/{id} → 200 OK (HelpTipContract) or 404 Not Found
-  - POST /api/v1/help-tips → 201 Created (HelpTipContract with generated Id)
-  - PUT /api/v1/help-tips/{id} → 204 No Content
-  - DELETE /api/v1/help-tips/{id} → 204 No Content
-- Errors return ProblemDetails; exceptions logged via TelemetryClient/ILogger.
-
-Integration notes
-- Ensure dependency injection: map IHelpTipRepository → SqlHelpTipRepository in Casrr.Api/Extensions/StartupExtensions.cs (DataExtensions.AddDataProviders()) if not already present.
-- Connection strings and environment policy should follow existing appsettings and DataExtensions (SQL Server in non-local environments).
-
-Developer Integration Checklist
-
-Backend
-- [x] Register IHelpTipRepository → SqlHelpTipRepository in StartupExtensions.AddDataProviders() (Casrr.Api/Extensions/StartupExtensions.cs)
-- [x] Confirm [Authorize(Policy = "RequireActiveUser")] is applied on HelpTipsController
-- [x] Verify SQL connection string name matches existing configuration
-- [x] No EF migrations or attributes added; raw ADO.NET only
-
-Frontend
-- Stage 2 is not generated per instruction. Do not proceed until explicitly asked.
+Rules:
+- Follow AGENTS.md and UI-PATTERNS.md exactly
+- Use Button from @/components/ui/Button
+- Use Select from @/components/ui/Select
+- Use RichTextEditor from @/components/ui/RichTextEditor
+  - Edit mode: showToolbar={true} readOnly={false}
+  - View mode: showToolbar={false} readOnly={true}
+- Use Dialog from @/components/ui/Dialog for delete 
+  confirmation modal
+- Filter bar has TWO inputs: Form and Topic — both 
+  trigger API re-fetch via useEffect
+- Help_tip_id is integer PK — read-only everywhere, 
+  never rendered as an input
+- Row state uses flat top-level fields: r.form, 
+  r.topic, r.helpTipContent — NOT r.edited.*
+- Row key: key={`${r.original.id}-${index}`}
+- No new npm packages
+- No backend files
+- No Stage 1 summary
