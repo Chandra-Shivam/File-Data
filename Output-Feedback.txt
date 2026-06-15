@@ -1,4 +1,2 @@
-Show me the exact className applied to the disabled 
-Select and disabled input elements in LoanCodeTable.tsx 
-when disabled={!r.editing}. Just the class strings, 
-nothing else.
+bg-white w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 disabled:border-slate-200
+w-full h-8 border border-slate-300 rounded px-2 text-sm bg-white focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 disabled:border-slate-200
