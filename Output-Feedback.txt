@@ -1,19 +1,21 @@
-Implemented the RichTextEditor state fix in frontend/src/app/maintenance/help-tips/page.tsx as requested.
+The cursor jump and Enter key issue persists in the 
+RichTextEditor in the Add New Help Tip form even after 
+the newContent local state fix.
 
-Summary of changes:
-- Introduced local editor state:
-  - Added: const [newContent, setNewContent] = useState<string>(newItem.helpTipContent ?? '')
-  - Added sync: useEffect(() => { setNewContent(newItem.helpTipContent ?? '') }, [newItem.helpTipContent])
-- Bound RichTextEditor to local state:
-  - value={newContent}
-  - onChange={(html) => setNewContent(html)}
-- Updated create handler to use the local editor state:
-  - const helpTipContent = newContent ?? ''
-- Reset local editor state after successful create:
-  - setNewContent('')
-- No other files were modified.
+Do the following diagnostic steps and report findings 
+before making any changes:
 
-Behavioral result:
-- Avoids recreating the entire newItem object on each keystroke, preventing caret jumps.
-- Enter key reliably inserts a new line in the rich text editor.
-- Conforms to patterns used elsewhere (e.g., CustomerInfoSection, RegulatoryTrackingSection).
+1. Open frontend/src/components/ui/RichTextEditor.tsx
+   and show me:
+   - How it handles the value prop internally
+   - How it restores caret position after onChange
+   - How it handles the Enter/Return key
+
+2. Check if the same cursor issue exists in the review 
+   sections that also use RichTextEditor:
+   - frontend/src/app/review/[ecif]/review-info/components/
+     sections/CustomerInfoSection.tsx
+   Look at exactly how that component wires up RichTextEditor 
+   vs how help-tips/page.tsx wires it up. Show any difference.
+
+3. Do NOT make any changes yet. Just report what you find.
