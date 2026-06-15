@@ -1,41 +1,47 @@
-Applied both requested fixes.
+Read AGENTS.md and UI-PATTERNS.md first.
 
-Frontend fix (duplicate React key):
-- File: frontend/src/app/maintenance/loan-codes/components/LoanCodeTable.tsx
-- Changes:
-  - Updated map signature to receive index: .map((r, index) => (
-  - Updated row key to include index fallback: key={`${r.original.code}-${index}`}
-- Outcome: Eliminates duplicate key warnings for codes like O1E1 and O1E2 while maintaining stable keys across rerenders in this table.
+Working on frontend/src/app/maintenance/loan-codes — 
+apply these 4 improvements:
 
-Backend fix (deduplicate query results):
-- File: backend/src/Casrr.Infrastructure/SqlServer/SqlLoanCodeRepository.cs
-- Method: GetLibraryAsync
-- Changes:
-  - Adjusted SELECT to trim and deduplicate rows:
-    SELECT DISTINCT LTRIM(RTRIM([Loan_code])) AS [Loan_code], LTRIM(RTRIM([Loan_code_category])) AS [Loan_code_category], [Loan_code_description]
-    FROM dbo.[03_LIBRARY_07_Loan Codes] WITH (NOLOCK)
-    WHERE (@cat IS NULL OR LTRIM(RTRIM([Loan_code_category])) = LTRIM(RTRIM(@cat)))
-    ORDER BY [Loan_code_category], [Loan_code];
-- Rationale:
-  - DISTINCT prevents accidental duplicates caused by whitespace or redundant rows.
-  - LTRIM/RTRIM normalizes trailing/leading spaces in Loan_code and Loan_code_category, improving dedup reliability while preserving category filter semantics.
-  - Ordering unchanged.
+**1. Disabled fields should look read-only**
+All Select and input fields in the table rows should be 
+visually distinct when disabled={true} (non-edit mode).
+Check what disabled styling the existing Select and input 
+components support in this project. Apply classes that make 
+them look read-only — muted background, muted text, no border 
+appearance. Do not invent new components.
 
-Validation steps:
-- Backend:
-  - Hit GET /api/v1/loan-codes and /api/v1/loan-codes?category=SomeCategory and verify each Loan_code appears once.
-  - If your data contains the same Loan_code with differing descriptions or categories, DISTINCT may still return more than one row. In that rare case, consider a stronger shape to enforce “one row per code”, e.g.:
-    SELECT LTRIM(RTRIM([Loan_code])) AS [Loan_code],
-           MIN(LTRIM(RTRIM([Loan_code_category]))) AS [Loan_code_category],
-           MAX([Loan_code_description]) AS [Loan_code_description]
-    FROM dbo.[03_LIBRARY_07_Loan Codes] WITH (NOLOCK)
-    WHERE (@cat IS NULL OR LTRIM(RTRIM([Loan_code_category])) = LTRIM(RTRIM(@cat)))
-    GROUP BY LTRIM(RTRIM([Loan_code]));
-  - Current change follows the requested “add DISTINCT” approach.
-- Frontend:
-  - Navigate to /maintenance/loan-codes. Confirm no React duplicate key warnings and table renders correctly for O1E1 and O1E2.
+**2. cursor-not-allowed on disabled fields**
+All disabled inputs and Select components in table rows must 
+show cursor-not-allowed on hover. Check how existing 
+maintenance pages (covenants/page.tsx) handle this and 
+match that pattern exactly.
 
-Note:
-- The editor surfaced a TypeScript deprecation warning for baseUrl in frontend/tsconfig.json. This is unrelated to the fix and can be silenced per TS guidance by setting "ignoreDeprecations": "6.0" if desired.
+**3. Add new category option in the Add New form dropdown**
+In the Add New Loan Code form, the Category select must 
+include an "＋ Add new category..." option at the bottom 
+of the dropdown list. When selected:
+- Replace the select with a text input
+- User types the new category name
+- A small Cancel link reverts back to the select
+- The typed value is used as the category on Create
+Check if a Combobox or creatable select component already 
+exists under frontend/src/components/ui/ before building 
+anything new. If one exists, use it. If not, implement 
+the toggle pattern described above using only existing 
+components.
 
-Both fixes are in place and ready for verification.
+**4. Pagination**
+Check the existing codebase for a Pagination component:
+- Look in frontend/src/components/ui/ for any Pagination 
+  or paging component
+- Look at other pages with large datasets for existing 
+  pagination patterns
+If a Pagination component exists, use it to paginate the 
+loan codes table (20 rows per page).
+If none exists, implement a simple page prev/next pattern 
+using Button components that matches the project's existing 
+style — do not install any new packages.
+
+For each item, show what existing component or pattern you 
+found in the codebase before writing any new code.
