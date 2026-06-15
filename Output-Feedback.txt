@@ -1,31 +1,51 @@
-STOP. Do not summarize Stage 1. Stage 1 is complete 
-and locked. Do not generate or mention any backend files.
+✓ Read AGENTS.md and UI-PATTERNS.md. Ready.
 
-Generate Stage 2 frontend files now. All 5 files, 
-complete, no truncation:
+Applied the requested front-end changes to Help Tips maintenance:
+1) Removed the ID column from the table:
+- Updated frontend/src/app/maintenance/help-tips/components/HelpTipTable.tsx:
+  - Removed the ID column header and cell.
+  - Adjusted colSpan values from 5 → 4 for loading and empty states.
+  - Data row keys still use r.original.id internally (not displayed), preserving React key stability.
 
-1. frontend/src/app/maintenance/help-tips/types.ts
-2. frontend/src/services/api/helpTips.ts
-3. frontend/src/hooks/useHelpTips.ts
-4. frontend/src/app/maintenance/help-tips/components/HelpTipTable.tsx
-5. frontend/src/app/maintenance/help-tips/page.tsx
+2) Non-edit mode fields look non-editable and show not-allowed cursor:
+- Text inputs (Form, Topic): added Tailwind classes disabled:cursor-not-allowed disabled:bg-slate-50 while disabled.
+- RichTextEditor: when readOnly (non-edit mode), adds className "cursor-not-allowed" to match the requested UX.
 
-Rules:
-- Follow AGENTS.md and UI-PATTERNS.md exactly
-- Use Button from @/components/ui/Button
-- Use Select from @/components/ui/Select
-- Use RichTextEditor from @/components/ui/RichTextEditor
-  - Edit mode: showToolbar={true} readOnly={false}
-  - View mode: showToolbar={false} readOnly={true}
-- Use Dialog from @/components/ui/Dialog for delete 
-  confirmation modal
-- Filter bar has TWO inputs: Form and Topic — both 
-  trigger API re-fetch via useEffect
-- Help_tip_id is integer PK — read-only everywhere, 
-  never rendered as an input
-- Row state uses flat top-level fields: r.form, 
-  r.topic, r.helpTipContent — NOT r.edited.*
-- Row key: key={`${r.original.id}-${index}`}
-- No new npm packages
-- No backend files
-- No Stage 1 summary
+Reference alignment with loan-codes:
+- Kept the always-rendered inputs pattern and disabled state toggling, matching the established maintenance table pattern.
+- Only the visual refinements for disabled state were added per your instruction.
+
+Files changed:
+- frontend/src/app/maintenance/help-tips/components/HelpTipTable.tsx
+
+Result:
+- The ID is no longer shown in the Help Tips table UI.
+- In non-edit mode, fields display disabled styling and the cursor changes to not-allowed on hover, making the read-only state visually clear.
+
+
+✓ Read AGENTS.md and UI-PATTERNS.md. Ready.
+
+Completed changes to resolve duplicate component and 404:
+- Removed duplicate component: frontend/src/app/maintenance/help-tips/components/HelpTipsTable.tsx (plural) was deleted; only HelpTipTable.tsx (singular) remains.
+- Scaffolded route page: frontend/src/app/maintenance/help-tips/page.tsx was created to implement the /maintenance/help-tips page and eliminate the 404.
+
+Page implementation highlights (conformant with UI-PATTERNS.md):
+- Page shell with p-4 space-y-4, top-right toast stack, and non-dismissible error banner.
+- Filter bar using shared Select for Form and Topic; changing filters triggers re-fetch via useEffect and listLibrary(form, topic).
+- Add New form with Form and Topic text inputs, and a RichTextEditor for Help Tip Content; single form-level error message.
+- Data table leverages the kept component HelpTipTable.tsx for inline edit/cancel/save and delete with confirmation.
+- Uses shared components Button, Select, and RichTextEditor; fetches via services/hooks (no direct fetch in components).
+
+Result:
+- The /maintenance/help-tips route now exists and should no longer return 404 when the Next.js dev server is running.
+- Backend endpoints /api/v1/help-tips are already implemented and wired through frontend services/hooks.
+
+Developer Integration Checklist
+- Verify NEXT_PUBLIC_API_URL is set so the frontend can reach the API.
+- Ensure the backend is running and accessible at the URL configured by NEXT_PUBLIC_API_URL.
+- Start/restart the Next dev server to pick up the new route.
+- Validate end-to-end:
+  - Load list with/without filters
+  - Create new item (required fields: Form, Topic; HTML content via RichTextEditor)
+  - Inline Edit → Save and Cancel
+  - Delete with confirmation
