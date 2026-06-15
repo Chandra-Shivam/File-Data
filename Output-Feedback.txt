@@ -1,21 +1,63 @@
-The cursor jump and Enter key issue persists in the 
-RichTextEditor in the Add New Help Tip form even after 
-the newContent local state fix.
+Diagnostic findings (no changes made)
 
-Do the following diagnostic steps and report findings 
-before making any changes:
+1) RichTextEditor internals (frontend/src/components/ui/RichTextEditor.tsx)
+- How value is handled:
+  - Initial render sets content via dangerouslySetInnerHTML={{ __html: value || "" }} on the contentEditable div.
+  - A useEffect runs on every value prop change:
+    - Reads current innerHTML and compares normalizeHtml(current) to normalizeHtml(value).
+    - If different, it assigns el.innerHTML = value to resync DOM with the prop.
+    - Updates isEmpty state for placeholder logic.
+    - Schedules caret restoration via setTimeout(..., 0).
+  - normalizeHtml(html): trims trailing whitespace only (html.replace(/\s+$/g, "")).
 
-1. Open frontend/src/components/ui/RichTextEditor.tsx
-   and show me:
-   - How it handles the value prop internally
-   - How it restores caret position after onChange
-   - How it handles the Enter/Return key
+- Caret restoration logic:
+  - handleInput (onInput) runs on each keystroke:
+    - Saves the current caret position as a character offset: caretIndexRef.current = getCaretCharacterOffsetWithin(el).
+    - Emits onChange(normalizeHtml(el.innerHTML)).
+    - Schedules setTimeout(..., 0) to restore by character offset using setCaretByCharacterOffset; if that fails, falls back to restoreSelection() from lastRangeRef.
+  - Global selection tracking:
+    - A selectionchange listener and saveCurrentSelection() (onFocus, onKeyUp, onMouseUp) store lastRangeRef (and caretIndexRef) when selection is inside the editor.
+  - When value changes (parent re-renders), the useEffect above also runs a setTimeout(..., 0) to restore caret with setCaretByCharacterOffset or restoreSelection().
 
-2. Check if the same cursor issue exists in the review 
-   sections that also use RichTextEditor:
-   - frontend/src/app/review/[ecif]/review-info/components/
-     sections/CustomerInfoSection.tsx
-   Look at exactly how that component wires up RichTextEditor 
-   vs how help-tips/page.tsx wires it up. Show any difference.
+- Enter/Return key handling:
+  - There is no explicit onKeyDown/onKeyPress handling for Enter.
+  - The editor relies on default contentEditable behavior for line breaks.
+  - Toolbar actions use document.execCommand; Enter is not intercepted or prevented anywhere in the component.
 
-3. Do NOT make any changes yet. Just report what you find.
+Implication:
+- If parent re-renders and the normalized value differs from the live DOM, the effect will set innerHTML = value, which rebuilds the DOM and requires caret restoration to be accurate. Character-offset restoration can be fragile around block changes (e.g., when Enter inserts <div><br></div>), potentially causing the “cursor jump”.
+
+2) Wiring comparison: CustomerInfoSection vs Add New Help Tip form
+- CustomerInfoSection (frontend/src/app/review/[ecif]/review-info/components/sections/CustomerInfoSection.tsx):
+  - Local state, outside any form:
+    - const [background, setBackground] = useState<string>(data?.backgroundNarrative ?? "").
+    - RichTextEditor value bound to background; onChange updates background and optionally writes to a changes context (try/catch).
+    - readOnly and showToolbar toggle based on isEditing.
+  - Critically, the editor is not inside a <form> element.
+
+- Add New Help Tip form (frontend/src/app/maintenance/help-tips/page.tsx):
+  - Local state:
+    - const [newContent, setNewContent] = useState<string>(newItem.helpTipContent ?? "");
+    - RichTextEditor value bound to newContent; onChange updates newContent only.
+  - Form wrapper:
+    - The editor is inside a <form onSubmit={handleCreate}> with a submit Button type="submit".
+    - There is no key handler to suppress Enter within the editor from bubbling into a form submit context.
+    - onBlur triggers onChange again (RichTextEditor’s handleBlur), which can occur if focus shifts due to form submission or button focus.
+  - Net effect:
+    - Pressing Enter inside a contentEditable that sits within a form can lead to form submit behavior in some browsers or cause focus shifts that invoke onBlur and parent updates. The parent update + RichTextEditor’s value effect may reset innerHTML and rely on caret restoration at a time when the DOM has just changed due to an Enter-induced block insert. This increases the chance of caret misplacement and the perceived failure to insert a newline.
+
+Key differences and likely cause:
+- The only material structural difference is that CustomerInfoSection places the editor outside a form, while the maintenance page places the editor inside a form with a type="submit" button and no Enter suppression.
+- RichTextEditor does not handle Enter explicitly, so default form semantics may interfere. Combined with innerHTML replacement in the value sync effect and character-offset-based caret restoration, this can manifest as:
+  - Cursor jumping on Enter (caret restore offset no longer matching new DOM structure).
+  - Enter seemingly not producing a line break (DOM replaced immediately by normalized value and caret restore).
+
+3) Summary
+- RichTextEditor:
+  - Syncs DOM to value prop via innerHTML replacement when it detects differences.
+  - Saves/restores caret via character offsets and lastRange; no special treatment for Enter.
+- CustomerInfoSection vs Help Tips Add form:
+  - Customer editor: outside form → no submit context → Enter acts as a simple line break.
+  - Help Tips editor: inside form with submit button → Enter may cause submit/focus/blur, triggering onBlur/onChange and parent re-render precisely when DOM structure changes due to Enter, increasing the chance of caret loss/jump.
+
+No changes were made as requested. These findings will guide targeted mitigation (e.g., suppress submit on Enter in the editor when inside a form, or refine value sync/caret restore) in a subsequent step upon instruction.
