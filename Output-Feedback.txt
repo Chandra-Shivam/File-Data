@@ -1,19 +1,47 @@
-The root cause is confirmed: the RichTextEditor is inside 
-a <form onSubmit={handleCreate}> which violates AGENTS.md 
-("Never use HTML form tags — use onClick/onChange instead") 
-and causes Enter key interference with contentEditable.
+STOP. Do not summarize anything. Do not touch backend files.
 
-Fix in frontend/src/app/maintenance/help-tips/page.tsx only:
+Apply this exact minimal fix to 
+frontend/src/components/ui/RichTextEditor.tsx only.
 
-1. Remove the <form onSubmit={handleCreate}> wrapper 
-   from the Add New section entirely
+TWO changes, nothing else:
 
-2. Replace it with a plain <div>
+CHANGE 1 — Find the useEffect that sets innerHTML and 
+add a guard so it only writes when content differs:
 
-3. Change the Create button from type="submit" to 
-   type="button" with onClick={handleCreate}
+BEFORE:
+useEffect(() => {
+  if (editorRef.current) {
+    editorRef.current.innerHTML = value;
+  }
+}, [value]);
 
-4. handleCreate logic stays exactly the same — 
-   only the trigger changes from form submit to button click
+AFTER:
+useEffect(() => {
+  const el = editorRef.current;
+  if (el && el.innerHTML !== value) {
+    el.innerHTML = value ?? '';
+  }
+}, [value]);
 
-No other changes. No backend files.
+CHANGE 2 — Find handleInput and remove the manual 
+caret save/restore entirely:
+
+BEFORE:
+const handleInput = () => {
+  const caret = saveCaretPosition();
+  onChange(editorRef.current!.innerHTML);
+  restoreCaretPosition(caret);
+};
+
+AFTER:
+const handleInput = () => {
+  const el = editorRef.current;
+  if (el) onChange(el.innerHTML);
+};
+
+Rules:
+- Do NOT remove any existing props (readOnly, showToolbar, 
+  ariaLabel, minHeight must all remain)
+- Do NOT rewrite or replace the whole file
+- Do NOT touch any other file
+- Show exact before/after lines only
