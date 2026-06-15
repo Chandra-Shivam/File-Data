@@ -1,21 +1,33 @@
-STOP. Do not summarize anything. Do not touch backend files.
+STOP. Do not summarize. Do not touch any backend files.
+Do not rewrite the whole file.
 
-Apply this exact minimal fix to 
-frontend/src/components/ui/RichTextEditor.tsx only.
+Apply these two targeted fixes to 
+frontend/src/components/ui/RichTextEditor.tsx only:
 
-TWO changes, nothing else:
-
-CHANGE 1 — Find the useEffect that sets innerHTML and 
-add a guard so it only writes when content differs:
+FIX 1 — Remove dangerouslySetInnerHTML from the 
+contentEditable div.
 
 BEFORE:
-useEffect(() => {
-  if (editorRef.current) {
-    editorRef.current.innerHTML = value;
-  }
-}, [value]);
+<div
+  ref={editorRef}
+  contentEditable
+  suppressContentEditableWarning
+  dangerouslySetInnerHTML={{ __html: value }}
+  onInput={handleInput}
+/>
 
 AFTER:
+<div
+  ref={editorRef}
+  contentEditable
+  suppressContentEditableWarning
+  onInput={handleInput}
+/>
+
+FIX 2 — Verify the useEffect has the inequality guard.
+It must look exactly like this — if it already does, 
+leave it alone. If it doesn't, fix it:
+
 useEffect(() => {
   const el = editorRef.current;
   if (el && el.innerHTML !== value) {
@@ -23,25 +35,8 @@ useEffect(() => {
   }
 }, [value]);
 
-CHANGE 2 — Find handleInput and remove the manual 
-caret save/restore entirely:
-
-BEFORE:
-const handleInput = () => {
-  const caret = saveCaretPosition();
-  onChange(editorRef.current!.innerHTML);
-  restoreCaretPosition(caret);
-};
-
-AFTER:
-const handleInput = () => {
-  const el = editorRef.current;
-  if (el) onChange(el.innerHTML);
-};
-
-Rules:
-- Do NOT remove any existing props (readOnly, showToolbar, 
-  ariaLabel, minHeight must all remain)
-- Do NOT rewrite or replace the whole file
-- Do NOT touch any other file
-- Show exact before/after lines only
+These are the only two changes.
+Do NOT remove readOnly, showToolbar, ariaLabel, 
+minHeight props.
+Do NOT rewrite the file.
+Show exact before/after for each change.
