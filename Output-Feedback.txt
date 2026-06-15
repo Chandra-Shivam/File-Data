@@ -1,2 +1,19 @@
-bg-white w-full disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 disabled:border-slate-200
-w-full h-8 border border-slate-300 rounded px-2 text-sm bg-white focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 disabled:border-slate-200
+STOP. Do not touch any backend files.
+
+The RichTextEditor in the Add New Help Tip form has two bugs:
+1. Cursor jumps to wrong position while typing
+2. Enter key does not create a new line
+
+Root cause: onChange fires on every keystroke, React 
+re-renders, and contentEditable loses cursor position.
+
+Before fixing anything:
+1. Search the entire frontend codebase for every existing 
+   usage of RichTextEditor from @/components/ui/RichTextEditor
+2. Show me the exact props and usage pattern from each 
+   existing usage found
+3. Then fix the Add New form in page.tsx to match that 
+   exact pattern
+
+The fix must not use any new packages.
+Only modify frontend/src/app/maintenance/help-tips/page.tsx
