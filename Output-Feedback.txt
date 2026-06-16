@@ -1,13 +1,12 @@
-STOP. Only modify frontend/src/components/pdf/ReviewPDF.tsx.
-No other files.
+Only modified frontend/src/components/pdf/ReviewPDF.tsx. Applied date formatting and listed exact before/after for each changed line.
 
-The dates in the PDF are displaying as ISO timestamps 
-(e.g. 2026-04-01T00:00:00). Format all dates in the PDF 
-to a readable format (e.g. 4/1/2026).
+1) Comment line above stripHtml
+- Before:
+  // Helper to strip HTML tags and condense whitespace
+- After:
+  /* Helper to strip HTML tags and condense whitespace */
 
-Add this helper function at the top of ReviewPDF.tsx 
-(inside the file, not exported):
-
+2) Added formatDate helper (new lines):
 const formatDate = (value?: string | null): string => {
   if (!value) return '-'
   const d = new Date(value)
@@ -19,13 +18,38 @@ const formatDate = (value?: string | null): string => {
   })
 }
 
-Apply formatDate() to every date field in the PDF:
-- Sample Date
-- Start Date
-- Completed Date
-- Last Annual Review Date
-- Next Annual Review Date
-- Review Approval Date
+3) Sample Date variable
+- Before:
+  const sampleDate = toDisplayDate(ri?.sampleDate);
+- After:
+  const sampleDate = formatDate(ri?.sampleDate);
 
-Show exact before/after for each line changed.
-No other changes.
+4) Start Date variable
+- Before:
+  const startDate = toDisplayDate(ri?.startDate);
+- After:
+  const startDate = formatDate(ri?.startDate);
+
+5) Completed Date variable
+- Before:
+  const completedDate = toDisplayDate(ri?.finalizedDate ?? ri?.endDate);
+- After:
+  const completedDate = formatDate(ri?.finalizedDate ?? ri?.endDate);
+
+6) Review Approval Date variable
+- Before:
+  const approvalDate = toDisplayDate(ri?.approvalDate);
+- After:
+  const approvalDate = formatDate(ri?.approvalDate);
+
+7) Last Annual Review Date field
+- Before:
+              {field("Last Annual Review Date", toDisplayDate(data?.covenants?.info?.lastAnnualReview || ""))}
+- After:
+              {field("Last Annual Review Date", formatDate(data?.covenants?.info?.lastAnnualReview || ""))}
+
+8) Next Annual Review Date field
+- Before:
+              {field("Next Annual Review Date", toDisplayDate(data?.covenants?.info?.nextAnnualReview || ""))}
+- After:
+              {field("Next Annual Review Date", formatDate(data?.covenants?.info?.nextAnnualReview || ""))}
