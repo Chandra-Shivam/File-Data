@@ -1,14 +1,31 @@
-Applied the requested fix to display Review ID in the PDF header.
+STOP. Only modify frontend/src/components/pdf/ReviewPDF.tsx.
+No other files.
 
-Changes:
-1) frontend/src/components/pdf/ReviewPDF.tsx
-- Added prop reviewId?: string to ReviewPDFProps.
-- Updated component signature to accept reviewId.
-- Replaced the header placeholder with the provided Review ID:
-  Review ID: {reviewId ?? "-"}
+The dates in the PDF are displaying as ISO timestamps 
+(e.g. 2026-04-01T00:00:00). Format all dates in the PDF 
+to a readable format (e.g. 4/1/2026).
 
-2) frontend/src/components/pdf/ReviewPDFModal.tsx
-- Passes the existing reviewId prop through to ReviewPDF when generating the PDF:
-  pdf(<ReviewPDF data={form} reviewId={reviewId} />)
+Add this helper function at the top of ReviewPDF.tsx 
+(inside the file, not exported):
 
-No other changes were made.
+const formatDate = (value?: string | null): string => {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return value
+  return d.toLocaleDateString('en-US', {
+    month: 'numeric',
+    day: 'numeric', 
+    year: 'numeric'
+  })
+}
+
+Apply formatDate() to every date field in the PDF:
+- Sample Date
+- Start Date
+- Completed Date
+- Last Annual Review Date
+- Next Annual Review Date
+- Review Approval Date
+
+Show exact before/after for each line changed.
+No other changes.
