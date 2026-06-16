@@ -1,22 +1,28 @@
-Read AGENTS.md and UI-PATTERNS.md first. Confirm with
-"✓ Read AGENTS.md and UI-PATTERNS.md. Ready."
+✓ Read AGENTS.md and UI-PATTERNS.md. Ready.
 
-IMPORTANT: Do NOT touch any backend files.
-Frontend only. Do NOT regenerate any existing pages.
+Findings:
+1) Review Queue page path
+- frontend/src/app/review-queue/page.tsx
 
-Feature: PDF Review Summary — icon beside Borrower Name 
-in the Review Queue table.
+2) Row data type/interface used by the Review Queue table
+- The table uses ReviewQueueRow imported from "@/services/api/reviews". Exact definition from frontend/src/services/api/reviews.ts:
+  export type ReviewQueueRow = {
+    id: string;
+    ecif: string;
+    borrower: string;
+    reviewer: string;
+    sampleId: string;
+    exposure: string;
+    bankPd: string;
+    casPd: string;
+    completed: string;
+  };
 
-Before writing any code, check and report:
-1. What is the path to the Review Queue page file?
-2. What data does each row in the Review Queue table 
-   currently contain? Show the TypeScript type/interface 
-   for a row item.
-3. Does the row data include the full review fields 
-   (Borrower_information, Risk_rating_justification etc.) 
-   or just summary fields?
-4. Is @react-pdf/renderer already in package.json?
-5. Is there an existing PDF component anywhere under 
-   frontend/src/?
+3) Row data scope (full vs summary)
+- Summary fields only (identifiers and high-level metrics: id, ecif, borrower, reviewer, sampleId, exposure, bankPd, casPd, completed). Full review sections (Borrower_information, Risk_rating_justification, etc.) are not included in the queue row and are fetched on demand via getReviewByKeys, which returns a ReviewQueueResponse with form: ReviewForm.
 
-Report these findings first. Do NOT write any code yet.
+4) @react-pdf/renderer in package.json
+- Present under frontend/package.json dependencies: "@react-pdf/renderer": "^4.3.2".
+
+5) Existing PDF component under frontend/src/
+- No dedicated PDF component file detected by directory listing of frontend/src (no files/folders named to indicate PDF). A content search for @react-pdf/renderer was attempted but could not run due to a missing ripgrep binary in the environment. Based on the full path listing, there is no existing PDF component under frontend/src.
