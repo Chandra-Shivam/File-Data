@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 
 type RichTextEditorProps = {
   value: string;
@@ -33,12 +33,18 @@ export default function RichTextEditor({
   const lastRangeRef = useRef<Range | null>(null);
   const caretIndexRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [isEmpty, setIsEmpty] = useState<boolean>(!value || stripHtml(value).trim().length === 0);
+  // Derived (not state) so the placeholder reflects the CURRENT value every render —
+  // including async-loaded and read-only content. A stale flag left the placeholder
+  // overlapping content that arrived after mount.
+  const isEmpty = !value || stripHtml(value).trim().length === 0;
 
-  // Keep editor content in sync if the `value` prop changes externally (e.g. tab switch)
+  // Keep editor content in sync when `value` changes externally (mount, tab switch,
+  // async load) — but NEVER while the user is typing (editor focused), or rewriting
+  // innerHTML would reset the caret to offset 0 (the cursor-jump / reversal bug).
   useEffect(() => {
     const el = editorRef.current;
-    if (el && el.innerHTML !== value) {
+    if (!el) return;
+    if (document.activeElement !== el && el.innerHTML !== (value ?? '')) {
       el.innerHTML = value ?? '';
     }
   }, [value]);
