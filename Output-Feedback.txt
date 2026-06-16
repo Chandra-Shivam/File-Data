@@ -1,12 +1,14 @@
-Small fix in ReviewPDFModal.tsx and ReviewPDF.tsx:
+Applied the requested fix to display Review ID in the PDF header.
 
-The PDF header shows "-" for Review ID.
-ReviewPDFModal already has reviewId as a prop.
+Changes:
+1) frontend/src/components/pdf/ReviewPDF.tsx
+- Added prop reviewId?: string to ReviewPDFProps.
+- Updated component signature to accept reviewId.
+- Replaced the header placeholder with the provided Review ID:
+  Review ID: {reviewId ?? "-"}
 
-1. Add reviewId prop to ReviewPDF: 
-   props: { data: ReviewForm; reviewId?: string }
-2. In ReviewPDFModal, pass it:
-   <ReviewPDF data={form} reviewId={reviewId} />
-3. In the PDF header, show reviewId instead of "-"
+2) frontend/src/components/pdf/ReviewPDFModal.tsx
+- Passes the existing reviewId prop through to ReviewPDF when generating the PDF:
+  pdf(<ReviewPDF data={form} reviewId={reviewId} />)
 
-No other changes.
+No other changes were made.
