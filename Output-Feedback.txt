@@ -1,28 +1,106 @@
-✓ Read AGENTS.md and UI-PATTERNS.md. Ready.
+Findings confirmed. Now build the feature.
 
-Findings:
-1) Review Queue page path
-- frontend/src/app/review-queue/page.tsx
+IMPORTANT: No backend changes. Frontend only.
+Do NOT regenerate the review-queue page from scratch — 
+only add the new PDF feature to it.
 
-2) Row data type/interface used by the Review Queue table
-- The table uses ReviewQueueRow imported from "@/services/api/reviews". Exact definition from frontend/src/services/api/reviews.ts:
-  export type ReviewQueueRow = {
-    id: string;
-    ecif: string;
-    borrower: string;
-    reviewer: string;
-    sampleId: string;
-    exposure: string;
-    bankPd: string;
-    casPd: string;
-    completed: string;
-  };
+Before writing code, read and show me:
+1. The ReviewForm type from @/services/api/reviews.ts
+2. The getReviewByKeys function signature from the same file
+3. The icons available in @/components/ui/icons.tsx
 
-3) Row data scope (full vs summary)
-- Summary fields only (identifiers and high-level metrics: id, ecif, borrower, reviewer, sampleId, exposure, bankPd, casPd, completed). Full review sections (Borrower_information, Risk_rating_justification, etc.) are not included in the queue row and are fetched on demand via getReviewByKeys, which returns a ReviewQueueResponse with form: ReviewForm.
+Then build these 3 files:
 
-4) @react-pdf/renderer in package.json
-- Present under frontend/package.json dependencies: "@react-pdf/renderer": "^4.3.2".
+FILE 1: frontend/src/components/pdf/ReviewPDF.tsx
+- @react-pdf/renderer Document component
+- Props: { data: ReviewForm }
+- Sections in this exact order:
 
-5) Existing PDF component under frontend/src/
-- No dedicated PDF component file detected by directory listing of frontend/src (no files/folders named to indicate PDF). A content search for @react-pdf/renderer was attempted but could not run due to a missing ripgrep binary in the environment. Based on the full path listing, there is no existing PDF component under frontend/src.
+  HEADER (full width, brand blue bg-[#1F3864]):
+    - Customer name (large)
+    - eCIF number, Review ID, Review Type
+    - Sample Type, Sample Date, Start Date, Completed Date
+
+  SECTION: Customer Information (2-column grid)
+    - Segment, Unit, Market, Line of Business
+    - NAICS Industry, Customer Size
+    - Last Annual Review Date, Next Annual Review Date
+
+  SECTION: Review Team (2-column grid)
+    - Relationship Manager, Portfolio Manager
+    - CRO, ECO, SCO
+    - Review Approver, Review Approval Date
+
+  SECTION: Risk Ratings (table format)
+    - Bank PD, CAS PD
+    - Collateral Rating, Risk Recognition Rating
+    - Scorecard Mgmt Rating, Underwriting Rating
+    - Credit Servicing Rating, Loan Admin Rating
+
+  SECTION: Regulatory Flags (inline badges)
+    - HLT, HRA, HVCRE, FDICIA, SNC
+    - Only show flags where value is true/yes
+
+  SECTION: Narratives (full width, one per subsection)
+    - Borrower Information
+    - Transaction Information
+    - Key Risks
+    - Risk Rating Justification
+    - Collateral Information
+    - Covenant Information
+    - Policy Exception Information
+    - Scorecard Information
+  Note: All narrative fields are HTML strings — strip all
+  HTML tags before rendering in PDF using a helper function:
+  const stripHtml = (html: string) => 
+    html?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() ?? ''
+
+FILE 2: frontend/src/components/pdf/ReviewPDFModal.tsx
+- Props: { reviewId: string; ecif: string; 
+          borrower: string; onClose: () => void }
+- On mount:
+  1. Call getReviewByKeys with reviewId and ecif
+  2. Show loading spinner while fetching and generating
+  3. Generate PDF blob using pdf(<ReviewPDF data={data}/>).toBlob()
+  4. Create blob URL and show in <iframe>
+- Modal layout:
+  - Header: "[Borrower Name] — Review Summary" + 
+    Download button + Close button
+  - Body: <iframe src={blobUrl} className="w-full h-[80vh]" />
+- Download button: creates <a> tag with blob URL and 
+  triggers download as "[BorrowerName]_Review.pdf"
+- Use Dialog from @/components/ui/Dialog for the modal wrapper
+- Use Button from @/components/ui/Button for all buttons
+- Revoke blob URL on modal close to prevent memory leaks
+
+FILE 3: Modify frontend/src/app/review-queue/page.tsx
+- Import ReviewPDFModal
+- Add state: 
+  const [pdfRow, setPdfRow] = useState<ReviewQueueRow | null>(null)
+- In the Borrower Name cell, add a small PDF icon button 
+  AFTER the borrower name text:
+  - Use an existing icon from icons.tsx if suitable, 
+    otherwise use a simple inline SVG document icon
+  - onClick: setPdfRow(row) — do NOT trigger row navigation
+  - e.stopPropagation() to prevent row double-click opening review
+  - className: "ml-2 text-slate-400 hover:text-[#1F3864] 
+    cursor-pointer inline-flex"
+- Below the table, render:
+  {pdfRow && (
+    <ReviewPDFModal
+      reviewId={pdfRow.id}
+      ecif={pdfRow.ecif}
+      borrower={pdfRow.borrower}
+      onClose={() => setPdfRow(null)}
+    />
+  )}
+
+// NEW DEPENDENCY: @react-pdf/renderer ^4.3.2 — already 
+// present in package.json, no install needed
+
+Rules:
+- No backend files
+- No native <button> — use Button component
+- TypeScript only
+- 'use client' on all interactive components
+- Do not rewrite review-queue/page.tsx from scratch
