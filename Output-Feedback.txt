@@ -1,65 +1,12 @@
-Implemented the “PDF Review Summary” feature per requirements.
+Small fix in ReviewPDFModal.tsx and ReviewPDF.tsx:
 
-Artifacts reviewed and referenced:
-- ReviewForm and related section types loaded from frontend/src/services/api/reviews.ts
-- getReviewByKeys(keys: { reviewId?: number; sampleId?: number; ecif?: string | null }): Promise&lt;ReviewQueueResponse&gt;
-- Icons loaded from frontend/src/components/ui/icons.tsx (used IconDownload for modal Download button)
+The PDF header shows "-" for Review ID.
+ReviewPDFModal already has reviewId as a prop.
 
-Files added/modified:
+1. Add reviewId prop to ReviewPDF: 
+   props: { data: ReviewForm; reviewId?: string }
+2. In ReviewPDFModal, pass it:
+   <ReviewPDF data={form} reviewId={reviewId} />
+3. In the PDF header, show reviewId instead of "-"
 
-1) frontend/src/components/pdf/ReviewPDF.tsx
-- Client component using @react-pdf/renderer (Document/Page/View/Text/StyleSheet).
-- Props: { data: ReviewForm }.
-- Order and content:
-  - HEADER (brand blue #1F3864): Customer Name, eCIF number, Review Type, Sample Type, Sample Date, Start Date, Completed Date. Review ID placeholder is “-” because ReviewForm does not include an ID; the prop is strictly ReviewForm, not the full response.
-  - SECTION: Customer Information (2-column): Segment, Unit, Market, Line of Business, NAICS Industry, Customer Size, Last Annual Review Date, Next Annual Review Date (mapped from nested form sections).
-  - SECTION: Review Team (2-column): Relationship Manager, Portfolio Manager, CRO, ECO, SCO, Review Approver, Review Approval Date (mapped from nested form sections).
-  - SECTION: Risk Ratings (table): Bank PD, CAS PD, Collateral Rating, Risk Recognition Rating, Scorecard Mgmt Rating, Underwriting Rating, Credit Servicing Rating, Loan Admin Rating.
-  - SECTION: Regulatory Flags: Inline badges showing only the flags whose value is Yes (supports both object and array formats from RegulatoryFlagsSection).
-  - SECTION: Narratives: Borrower Information, Transaction Information, Key Risks, Risk Rating Justification, Collateral Information, Covenant Information, Policy Exception Information, Scorecard Information. All narrative fields sanitized via:
-      const stripHtml = (html: string) => html?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() ?? ""
-- Mapping logic uses nested ReviewForm sections (reviewInfo, customerInfo, transactions, collateralTracking, covenants, policyExceptions, regulatoryFlags, scorecard, crmFindings, riskRatingJustification).
-
-2) frontend/src/components/pdf/ReviewPDFModal.tsx
-- Client component. Props: { reviewId: string; ecif: string; borrower: string; onClose: () => void }.
-- On mount:
-  - Converts reviewId → number and ecif → trimmed string per getReviewByKeys contract.
-  - Calls getReviewByKeys({ reviewId, ecif }) and extracts form: ReviewForm.
-  - Generates blob via pdf(&lt;ReviewPDF data={form} /&gt;).toBlob().
-  - Creates and stores a blob URL; shows it in an iframe.
-- UI:
-  - Uses Modal (Dialog) and Button components.
-  - Header: “[Borrower] — Review Summary” with Download (IconDownload) + Close buttons.
-  - Body: shows loading state (ThemedLoading), error message, or &lt;iframe src={blobUrl} className="w-full h-[80vh]" /&gt;.
-  - Download: creates an anchor with blob URL and triggers download as “[Borrower]_Review.pdf”.
-  - Cleans up and revokes blob URL on close/unmount to prevent leaks.
-- No native button introduced; only Button components were used.
-
-3) frontend/src/app/review-queue/page.tsx (targeted edits only; no regeneration)
-- Imports ReviewPDFModal.
-- Adds state: const [pdfRow, setPdfRow] = useState&lt;ReviewQueueRow | null&gt;(null).
-- In the Borrower cell:
-  - Keeps Borrower link behavior (opens review on click).
-  - Adds a small Button with inline SVG document icon, per spec.
-  - onClick: e.stopPropagation(); setPdfRow(row).
-  - Classes: "ml-2 text-slate-400 hover:text-[#1F3864] cursor-pointer inline-flex".
-- Renders the modal below the table:
-  {pdfRow &amp;&amp; (
-    &lt;ReviewPDFModal
-      reviewId={pdfRow.id}
-      ecif={pdfRow.ecif}
-      borrower={pdfRow.borrower}
-      onClose={() =&gt; setPdfRow(null)}
-    /&gt;
-  )}
-- No backend changes.
-- All new interactive components include 'use client'.
-- No native button introduced by this feature; used the app’s Button component for the row icon and modal actions.
-
-Behavior summary:
-- Users click the new document icon next to the Borrower name to open a modal.
-- The modal fetches the full review using reviewId/ecif and generates a PDF blob using @react-pdf/renderer.
-- The PDF is previewed in an iframe and can be downloaded via the Download button.
-- Closing the modal revokes the blob URL to avoid memory leaks.
-
-All constraints satisfied: frontend-only, no page regeneration, use existing UI components, correct type conversions for getReviewByKeys, mapping from nested ReviewForm sections, and using the provided inline SVG for the row icon and IconDownload for downloading inside the modal.
+No other changes.
