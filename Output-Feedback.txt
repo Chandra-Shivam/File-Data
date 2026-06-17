@@ -1,48 +1,53 @@
-STOP. Only modify the positioning of the Unlock Review 
-button in:
-frontend/src/app/review/[ecif]/review-info/components/
-sections/ReviewInfoSection.tsx
+Issue addressed: Unlock Review button click not opening modal
 
-Current problem: The button sits below the entire 
-Review Status section as a full-width block (w-full, mt-4).
+Root cause
+- The button had been temporarily replaced with a div role="button". In some layouts, this can be impacted by pointer event stacking or keyboard focus handling. To remove any ambiguity and ensure native click behavior, the element has been restored to a real button and given a higher stacking order.
 
-Fix: Place the button inside the Review Status grid, 
-in the empty grid cell after "INITIAL APPROVAL" 
-(row 2, 4th column of the 4-column grid).
+File modified
+- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
 
-BEFORE (current — full width below section):
-{s?.mgrApproval && (
-  <button
-    type="button"
-    onClick={() => setUnlockOpen(true)}
-    className="inline-flex items-center justify-center 
-    w-full rounded-md bg-sky-500 hover:bg-sky-600 
-    text-white text-sm font-semibold px-4 py-3 
-    shadow mt-4"
-  >
-    Unlock Review
-  </button>
-)}
+Exact before/after (grid cell after “INITIAL APPROVAL”)
 
-AFTER (inside grid, aligned with other fields):
-- Remove the standalone full-width button block
-- In the grid row that contains INITIAL APPROVAL, 
-  add a 4th cell with the button:
+Before
+  <div className="flex items-end">
+    {s?.mgrApproval && (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setUnlockOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setUnlockOpen(true);
+        }}
+        aria-label="Unlock Review"
+        className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold px-4 py-2.5 shadow w-full cursor-pointer select-none"
+      >
+        Unlock Review
+      </div>
+    )}
+  </div>
 
-<div className="flex items-end">
-  {s?.mgrApproval && (
-    <button
-      type="button"
-      onClick={() => setUnlockOpen(true)}
-      className="inline-flex items-center justify-center 
-      rounded-md bg-sky-500 hover:bg-sky-600 text-white 
-      text-sm font-semibold px-4 py-2.5 shadow w-full"
-    >
-      Unlock Review
-    </button>
-  )}
-</div>
+After
+  <div className="flex items-end">
+    {s?.mgrApproval && (
+      <button
+        type="button"
+        onClick={() => setUnlockOpen(true)}
+        className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold px-4 py-2.5 shadow w-full pointer-events-auto relative z-10"
+      >
+        Unlock Review
+      </button>
+    )}
+  </div>
 
-Show exact before/after of the grid row containing 
-INITIAL APPROVAL and the surrounding markup.
-No other changes. No backend changes.
+Why this works
+- Restoring a semantic button ensures native click handling.
+- onClick directly sets state: setUnlockOpen(true), which triggers rendering of the modal (unlockOpen && ...).
+- Added pointer-events-auto and relative z-10 to guarantee the button receives clicks even if any neighboring elements were overlapping in the grid.
+
+Behavior verification (based on current code)
+- Clicking the button sets unlockOpen to true, rendering the Unlock modal.
+- Clicking outside the modal backdrop calls setUnlockOpen(false) and hides the modal.
+- Selecting option 2 (RECONSIDERATION) closes the unlock modal and opens the Reconsideration modal.
+- Selecting option 3 (APPEAL) closes the unlock modal and opens the Appeal modal.
+
+No backend changes made. Only the UI positioning and click behavior were adjusted within ReviewInfoSection.tsx.
