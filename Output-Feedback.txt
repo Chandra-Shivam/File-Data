@@ -1,27 +1,59 @@
-STOP. Only fix these two visual bugs in 
-frontend/src/app/review-queue/page.tsx.
-No other changes. No backend files.
+Applied targeted visual fixes in frontend/src/app/review-queue/page.tsx only, with no backend or functional changes.
 
 BUG 1 — Column headers not visible in review table
-The column headers (eCIF #, Borrower Name / Linesheet, 
-Reviewer, Exposure, Bank PD, CAS PD, Completed) are 
-not visible — there is a blank row where they should be.
+- Root cause: The DataTable component supports a theadClassName prop for header styling. It was not being passed, so the header row used the default styles, and after previous edits the header appeared blank.
+- Fix: Pass theadClassName to DataTable with the brand header styles (bg-[#1F3864] text-white).
 
-Check: does the DataTable component accept 
-theadClassName as a prop? If not, find how it actually 
-styles its header and apply bg-[#1F3864] text-white 
-the correct way for that component.
-If DataTable does not support custom header styling, 
-apply the brand blue header to the section title bar 
-above the table only and leave the DataTable header 
-as its default style.
+Before:
+  <DataTable&lt;ReviewRow&gt;
+    columns={columns}
+    rows={sortedRows}
+    sortBy={sortBy}
+    sortDir={sortDir}
+    onSort={handleSort}
+    selectedId={selectedId}
+    getRowId={(r) =&gt; r.id}
+    onSelect={setSelectedId}
+    onOpen={(r) =&gt; { void handleOpen(r); }}
+    tableLabel="Review Queue"
+    className="w-full"
+    selectedRowClassName="bg-slate-100"
+    rowActions={(r) =&gt; (
+      ...
+    )}
+  />
 
-BUG 2 — Extra empty space below Totals row
-There is a large empty white block below the Totals 
-row in the Progress Status panel. 
-Remove any h-full, min-h, or fixed height from the 
-Progress Status panel wrapper so it sizes to its 
-content naturally.
+After:
+  <DataTable&lt;ReviewRow&gt;
+    columns={columns}
+    rows={sortedRows}
+    sortBy={sortBy}
+    sortDir={sortDir}
+    onSort={handleSort}
+    selectedId={selectedId}
+    getRowId={(r) =&gt; r.id}
+    onSelect={setSelectedId}
+    onOpen={(r) =&gt; { void handleOpen(r); }}
+    tableLabel="Review Queue"
+    className="w-full"
+    theadClassName="bg-[#1F3864] text-white"
+    selectedRowClassName="bg-slate-100"
+    rowActions={(r) =&gt; (
+      ...
+    )}
+  />
 
-Show exact before/after for each fix.
-No functional changes. No new packages.
+Validation:
+- DataTable.tsx definition includes theadClassName in DataTableProps and applies it to the thead element. This is the correct way to style the header.
+
+BUG 2 — Extra empty space below Totals row (Progress Status panel)
+- Root cause: The Progress Status card wrapper included a fixed height class (h-full), causing extra vertical space regardless of content height.
+- Fix: Remove h-full so the panel sizes to content.
+
+Before:
+  &lt;div className="rounded border border-slate-200 overflow-hidden h-full"&gt;
+
+After:
+  &lt;div className="rounded border border-slate-200 overflow-hidden"&gt;
+
+No other changes were made. No new packages, and no backend files were touched.
