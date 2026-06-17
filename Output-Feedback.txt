@@ -1,93 +1,165 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+Completed Tasks 1–4 per feedback after reading AGENTS.md and UI-PATTERNS.md. No backend changes were made. Exact before/after for each change are included below.
 
-Make these 4 changes. Files to modify:
-1. frontend/src/app/review/[ecif]/review-info/
-   components/ui.tsx (Field component — Task 1)
-2. frontend/src/app/review/[ecif]/review-info/
-   components/sections/ReviewInfoSection.tsx 
-   (Tasks 2, 3, 4)
+Modified files:
+- frontend/src/app/review/[ecif]/review-info/components/ui.tsx (Task 1)
+- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx (Tasks 2, 3, 4)
 
-TASK 1 — Disabled cursor on view mode fields
-In the Field component (ui.tsx), the view mode input:
-  className="w-full h-9 border border-slate-200 
-  rounded px-2 text-sm bg-slate-50"
+Task 1 — Disabled cursor on view mode fields (Field component)
+File: frontend/src/app/review/[ecif]/review-info/components/ui.tsx
 
-Add cursor-not-allowed and the full disabled styling:
-  className="w-full h-9 border border-slate-200 
-  rounded px-2 text-sm bg-slate-100 text-slate-500 
-  cursor-not-allowed"
+Before (view mode input):
+<input
+  className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-50"
+  value={value ?? ""}
+  readOnly
+/>
 
-TASK 2, 3 — Replace Reviewer Name and Manager with 
-dropdowns in edit mode
+After (view mode input with disabled styling):
+<input
+  className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-100 text-slate-500 cursor-not-allowed"
+  value={value ?? ""}
+  readOnly
+/>
 
-In ReviewInfoSection.tsx:
-1. Import listUsers and CasUser from 
-   "@/services/api/casUsers"
-2. Import Select from "@/components/ui/Select"
-3. Add state for fetched users:
-   const [croUsers, setCroUsers] = useState<CasUser[]>([])
-   const [managerUsers, setManagerUsers] = useState<CasUser[]>([])
+Task 2/3 — Replace Reviewer Name and Manager with dropdowns in edit mode
+File: frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
 
-4. Fetch users once on mount:
-   useEffect(() => {
-     listUsers().then((users) => {
-       setCroUsers(users.filter(u => 
-         u.role === 'CRO' && u.active))
-       setManagerUsers(users.filter(u => 
-         u.role === 'Manager' && u.active))
-     }).catch(() => {})
-   }, [])
+1) Imports added
 
-5. Replace the Reviewer Name Field with:
-   {isEditing ? (
-     <div className="flex flex-col gap-1">
-       <label className="text-xs text-slate-500 
+Before (excerpt around useParams import):
+import { useParams } from "next/navigation";
+
+After (added Select, casUsers, and changes hook imports):
+import { useParams } from "next/navigation";
+import Select from "@/components/ui/Select";
+import { listUsers, type CasUser } from "@/services/api/casUsers";
+import { useFormChangesOptional } from "@/app/review/[ecif]/review-info/FormChangesContext";
+
+2) Added state for fetched users and changes accessor
+
+Before:
+const { isEditing } = useEditMode();
+
+After:
+const { isEditing } = useEditMode();
+const changes = useFormChangesOptional();
+const [croUsers, setCroUsers] = useState<CasUser[]>([]);
+const [managerUsers, setManagerUsers] = useState<CasUser[]>([]);
+
+3) Fetch users once on mount
+
+Before:
+const ec = data?.effectiveChallenge;
+
+After:
+const ec = data?.effectiveChallenge;
+
+useEffect(() => {
+  listUsers()
+    .then((users) => {
+      setCroUsers(users.filter((u) => u.role === "CRO" && u.active));
+      setManagerUsers(users.filter((u) => u.role === "Manager" && u.active));
+    })
+    .catch(() => {});
+}, []);
+
+4) Replace the Reviewer Name Field with Select in edit mode
+
+Before:
+<Field label="Reviewer Name" value={a?.reviewerName ?? ""} section="reviewInfo" name="reviewerName" />
+
+After:
+{isEditing ? (
+  <div className="flex flex-col gap-1">
+    <label className="text-xs text-slate-500 
          font-medium uppercase tracking-wider">
-         REVIEWER NAME
-       </label>
-       <Select
-         size="sm"
-         className="bg-white w-full"
-         value={a?.reviewerName ?? ""}
-         onChange={(e) => {
-           const user = croUsers.find(
-             u => u.name === e.target.value)
-           changes?.setField("reviewInfo", 
-             "reviewerName", e.target.value)
-           if (user) {
-             changes?.setField("reviewInfo", 
-               "reviewerEmail", user.email)
-           }
-         }}
-       >
-         <option value="">Select reviewer...</option>
-         {croUsers.map(u => (
-           <option key={u.id} value={u.name}>
-             {u.name}
-           </option>
-         ))}
-       </Select>
-     </div>
-   ) : (
-     <Field label="REVIEWER NAME" 
-       value={a?.reviewerName ?? ""} />
-   )}
+      REVIEWER NAME
+    </label>
+    <Select
+      size="sm"
+      className="bg-white w-full"
+      value={a?.reviewerName ?? ""}
+      onChange={(e) => {
+        const user = croUsers.find(
+          (u) => u.name === e.target.value
+        );
+        changes?.setField("reviewInfo", "reviewerName", e.target.value);
+        if (user) {
+          changes?.setField("reviewInfo", "reviewerEmail", user.email);
+        }
+      }}
+    >
+      <option value="">Select reviewer...</option>
+      {croUsers.map((u) => (
+        <option key={u.id} value={u.name}>
+          {u.name}
+        </option>
+      ))}
+    </Select>
+  </div>
+) : (
+  <Field label="REVIEWER NAME" value={a?.reviewerName ?? ""} />
+)}
 
-6. Replace the Manager Field with identical pattern 
-   using managerUsers and these field names:
-   - section: "reviewInfo"  
-   - name field: "managerName"
-   - email field: "managerEmail"
-   - label: "MANAGER"
-   - placeholder: "Select manager..."
+5) Replace the Manager Field with Select in edit mode
 
-TASK 4 — Email auto-update is already handled in 
-Task 2 and 3 above via changes.setField for email.
-Verify Reviewer Email and Manager Email fields 
-use the same section/name as what setField targets.
-Show the current field names for reviewerEmail 
-and managerEmail in the component.
+Before:
+<Field label="Manager" value={a?.managerName ?? ""} section="reviewInfo" name="managerName" />
 
-Do NOT modify any other fields.
-No backend changes.
-Show exact before/after for each change.
+After:
+{isEditing ? (
+  <div className="flex flex-col gap-1">
+    <label className="text-xs text-slate-500 
+         font-medium uppercase tracking-wider">
+      MANAGER
+    </label>
+    <Select
+      size="sm"
+      className="bg-white w-full"
+      value={a?.managerName ?? ""}
+      onChange={(e) => {
+        const user = managerUsers.find(
+          (u) => u.name === e.target.value
+        );
+        changes?.setField("reviewInfo", "managerName", e.target.value);
+        if (user) {
+          changes?.setField("reviewInfo", "managerEmail", user.email);
+        }
+      }}
+    >
+      <option value="">Select manager...</option>
+      {managerUsers.map((u) => (
+        <option key={u.id} value={u.name}>
+          {u.name}
+        </option>
+      ))}
+    </Select>
+  </div>
+) : (
+  <Field label="MANAGER" value={a?.managerName ?? ""} />
+)}
+
+Task 4 — Verify Reviewer Email and Manager Email field names match setField targets
+The dropdowns set the following fields via changes.setField:
+- section "reviewInfo", name "reviewerName", and also "reviewerEmail" when a CRO is selected
+- section "reviewInfo", name "managerName", and also "managerEmail" when a Manager is selected
+
+Current email field JSX (as rendered in the component) confirms the same section/name:
+
+Reviewer Email (edit mode branch):
+<Field label="Reviewer Email" value={a?.reviewerEmail ?? ""} section="reviewInfo" name="reviewerEmail" />
+
+Manager Email (edit mode branch):
+<Field label="Manager Email" value={a?.managerEmail ?? ""} section="reviewInfo" name="managerEmail" />
+
+Notes:
+- In view mode, Reviewer Email and Manager Email render as mailto: links if a value exists, otherwise they fall back to a Field without section/name, which is expected for read-only rendering.
+- Select adheres to shared component usage per UI-PATTERNS.md. No native select tags were introduced beyond existing non-Select areas of this page.
+
+No other fields were modified. No backend changes.
+
+Developer Integration Checklist (Frontend-only for this change set)
+- [x] Verified 'use client' directives are present on edited components
+- [x] Service import uses resource noun file and /api/v1/ route via existing casUsers service
+- [x] Shared Select component is used for dropdowns as required by UI-PATTERNS.md
+- [x] View mode inputs now include disabled styling (bg-slate-100 text-slate-500 cursor-not-allowed)
