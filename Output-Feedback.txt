@@ -1,53 +1,14 @@
-STOP. Only modify ReviewInfoSection.tsx.
-No backend changes. Three fixes:
+STOP. Search the entire frontend codebase for every 
+occurrence of "Unlock Review" text — not just 
+ReviewInfoSection.tsx.
 
-FIX 1 — Remove duplicate Unlock Review button
-There are two buttons visible. One is in the SectionCard 
-header actions prop (from a previous change). Remove it.
-Find and delete:
-actions={
-  s?.mgrApproval ? (
-    <button ... >Unlock Review</button>
-  ) : null
-}
-from the SectionCard — keep only the div role="button" 
-inside the grid cell.
+Run a search across ALL files under frontend/src/ for:
+- "Unlock Review"
+- "unlockOpen"
+- "setUnlockOpen"
 
-FIX 2 — Modal buttons not working (same fieldset issue)
-The modal's Close, Confirm, and X buttons are native 
-<button> elements inside the fieldset disabled wrapper. 
-They are also blocked by fieldset disabled.
+List every file path where these appear.
+Then show me the exact JSX rendering "Unlock Review" 
+in each file that is NOT ReviewInfoSection.tsx.
 
-Find ALL <button> elements inside the unlock modal JSX 
-(unlockOpen && ...) and replace each with 
-<div role="button"> using the same pattern:
-
-<div
-  role="button"
-  tabIndex={0}
-  onClick={...existing handler...}
-  onKeyDown={(e) => {
-    if (e.key === 'Enter' || e.key === ' ') 
-      ...existing handler...
-  }}
-  className="...existing classes... cursor-pointer 
-  select-none"
->
-  ...button text...
-</div>
-
-Apply the same fix to ALL buttons in:
-- The unlock options modal
-- The Reconsideration modal  
-- The Appeal modal
-
-FIX 3 — Unlock Review button sizing
-The button is too wide (w-full fills the entire grid 
-cell). Replace w-full with w-auto and add mx-auto so 
-it centers and sizes to its content:
-
-BEFORE: className="...w-full"
-AFTER:  className="...w-auto px-4 py-2 mx-auto"
-
-Show exact before/after for each fix.
-No other changes.
+Do NOT make any changes yet. Report findings only.
