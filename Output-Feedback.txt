@@ -1,56 +1,48 @@
-Root cause confirmed: <fieldset disabled> in page.tsx 
-wraps ActiveComponent and disables all button clicks 
-in read-only mode.
+STOP. Only modify the Unlock Review trigger element in 
+frontend/src/app/review/[ecif]/review-info/components/
+sections/ReviewInfoSection.tsx
 
-Fix using Option B — lift state to page.tsx:
+Keep the button in the empty grid cell (4th column, 
+row 2 after INITIAL APPROVAL).
 
-In page.tsx:
-1. Add state: const [unlockOpen, setUnlockOpen] = useState(false)
+The fieldset disabled in page.tsx blocks <button> 
+elements but NOT <div> elements.
 
-2. Find where mgrApproval is available in page.tsx 
-   (it's likely in the review data fetched by the page). 
-   Show me where it comes from.
+Replace the <button> with a <div role="button">:
 
-3. Render the Unlock Review button OUTSIDE the fieldset, 
-   just before or after it:
-   {mgrApproval && !isEditing && (
-     <div className="flex justify-end mb-2">
-       <button
-         type="button"
-         onClick={() => setUnlockOpen(true)}
-         className="inline-flex items-center justify-center 
-         rounded-md bg-sky-500 hover:bg-sky-600 text-white 
-         text-xs font-semibold px-3 py-1.5 shadow"
-       >
-         Unlock Review
-       </button>
-     </div>
-   )}
-   {isEditing ? (
-     <ActiveComponent />
-   ) : (
-     <fieldset disabled className="contents">
-       <ActiveComponent />
-     </fieldset>
-   )}
+BEFORE:
+<div className="flex items-end">
+  {s?.mgrApproval && (
+    <button
+      type="button"
+      onClick={...}
+      className="..."
+    >
+      Unlock Review
+    </button>
+  )}
+</div>
 
-4. Pass unlockOpen and setUnlockOpen as props to 
-   ReviewInfoSection (through ActiveComponent or 
-   directly):
-   - Add props to ReviewInfoSection: 
-     unlockOpen?: boolean
-     onUnlockOpenChange?: (open: boolean) => void
-   - In ReviewInfoSection, use these props instead 
-     of local state for unlockOpen
+AFTER:
+<div className="flex items-end">
+  {s?.mgrApproval && (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => setUnlockOpen(true)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') 
+          setUnlockOpen(true)
+      }}
+      className="inline-flex items-center 
+      justify-center rounded-md bg-sky-500 
+      hover:bg-sky-600 text-white text-xs 
+      font-semibold px-3 py-1.5 shadow 
+      cursor-pointer select-none w-full"
+    >
+      Unlock Review
+    </div>
+  )}
+</div>
 
-5. Remove the Unlock Review button from 
-   ReviewInfoSection.tsx entirely (it now lives in 
-   page.tsx)
-
-6. Keep all modal JSX (unlock options modal, 
-   reconsideration modal, appeal modal) in 
-   ReviewInfoSection.tsx — only the trigger button 
-   moves to page.tsx
-
-Show exact before/after for both files.
-No backend changes.
+No other changes. No backend changes.
