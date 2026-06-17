@@ -1,19 +1,74 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+Findings-only report (no changes made)
 
-Working on the Review Info page under:
-frontend/src/app/review/[ecif]/review-info/
+Scope searched
+- Frontend: frontend/src/**/*.ts, frontend/src/**/*.tsx
+- Backend controllers: backend/src/Casrr.Api/Controllers/**/*.cs
 
-TASK 1 — CHECK ONLY, no changes yet:
-Search the entire frontend codebase for any of these:
-- "unlock" (case insensitive)
-- "UnlockReview" or "unlock-review"
-- "Reconsideration" component or modal
-- "Appeal" component or modal
+A) “unlock” (case-insensitive), “UnlockReview”, “unlock-review”
 
-Report exactly what you find:
-1. File paths
-2. Whether it's implemented or just a placeholder
-3. What backend endpoints exist for unlock/reconsideration/appeal
-   (check backend/src/Casrr.Api/Controllers/)
+1) Frontend file paths and status
+- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
+  - Implemented. Contains UI state and modal for “Unlock Review”
+    - State: unlockOpen, unlockReason
+    - “Unlock Review” button triggers setUnlockOpen(true)
+    - Modal with radio options: GENERAL, RECONSIDERATION, APPEAL; selecting the latter two opens corresponding modals
+    - No dedicated API call to an “unlock” endpoint; flows into reconsideration/appeal modals which save via saveReview
+- frontend/src/components/shared/tab-flow/TabFlowProvider.tsx
+  - Implemented, unrelated to Review unlock. “unlock” here refers to keyboard navigation/focus lock timers (unlockTimerRef), not data unlock
+- frontend/src/services/api/reit.ts
+  - Implemented. UNLOCK helper for a different domain:
+    - export async function unlockReit(id, reason) { await post(`${idPath(id)}/unlock`, { reason }); }
+- frontend/src/services/api/templates.ts
+  - Implemented. Unlock helpers for template editing flow (different domain):
+    - unlockRequired?: boolean
+    - unlockRoute(id): /api/v1/commercial/{id}/edit/unlock
+    - unlockFinal(id, reason): POST to unlockRoute
 
-Do NOT make any changes. Report findings only.
+- No hits for “UnlockReview” and “unlock-review” in the frontend codebase.
+
+2) Backend controllers (exact search terms)
+- backend/src/Casrr.Api/Controllers/**: No occurrences of “unlock”
+
+B) “Reconsideration” component or modal
+
+1) Frontend file paths and status
+- frontend/src/app/review/[ecif]/review-info/components/sections/hooks/useReviewInfo.ts
+  - Implemented. Maps reconsideration fields to UI model:
+    - reconsiderationDate, reconsiderationDescription, reconsiderationDecision, reconsiderationRationale
+- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
+  - Implemented. Reconsideration modal and state:
+    - reconsiderationOpen, rcReconsidered, rcDate, rcDesc, rcDecision, rcRationale
+    - Submit handler calls saveReview({ reviewInfo: { change: "Upsert", data: { reconsideration, reconsiderationDate, reconsiderationDescription, reconsiderationDecision, reconsiderationRationale } } })
+- frontend/src/services/api/reviews.ts
+  - Implemented DTO fields for reconsideration (frontend typing/comments):
+    - reconsideration, reconsiderationDate, reconsiderationDescription, reconsiderationDecision, reconsiderationRationale
+
+2) Backend controllers (exact search terms)
+- backend/src/Casrr.Api/Controllers/**: No occurrences of “reconsideration”
+
+C) “Appeal” component or modal
+
+1) Frontend file paths and status
+- frontend/src/app/review/[ecif]/review-info/components/sections/hooks/useReviewInfo.ts
+  - Implemented. Maps appeal fields to UI model:
+    - appealed, appealDate, appealDescription, appealDecision, appealDecisionRationale
+- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
+  - Implemented. Appeal modal and state:
+    - appealOpen, apAppealed, apDate, apDesc, apDecision, apRationale, apMainChecked
+    - Submit handler calls saveReview({ reviewInfo: { change: "Upsert", data: { appeal, appealDate, appealDescription, appealDecision, appealDecisionRationale } } })
+- frontend/src/services/api/reviews.ts
+  - Implemented DTO fields for appeal (frontend typing/comments):
+    - appeal, appealDate, appealDescription, appealDecision, appealDecisionRationale
+
+2) Backend controllers (exact search terms)
+- backend/src/Casrr.Api/Controllers/**: No occurrences of “appeal”
+
+Additional controller string checked
+- backend/src/Casrr.Api/Controllers/**: No occurrences of “EffectiveChallenge” (suggesting no specific-named controller action for these flows)
+
+Backend endpoints summary (per requested terms)
+- No dedicated controller endpoints named unlock, reconsideration, or appeal were found under backend/src/Casrr.Api/Controllers/.
+- Frontend reconsideration/appeal modals persist via saveReview (general review save), not a dedicated unlock/reconsideration/appeal endpoint.
+- Other unlock-related frontend API helpers exist for different domains (reit, templates) but are not part of the Review Info flow.
+
+End of findings-only report.
