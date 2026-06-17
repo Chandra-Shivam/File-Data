@@ -1,32 +1,100 @@
-STOP. The Unlock Review button is visible but clicking 
-it does nothing. We need to diagnose this precisely.
-
-Step 1 — Add a temporary diagnostic (do this first):
-In ReviewInfoSection.tsx, change the button's onClick 
-from:
-  onClick={() => setUnlockOpen(true)}
-to:
+Diagnostic added (Step 1)
+- Updated onClick for the Unlock Review button in ReviewInfoSection.tsx to log and stopPropagation:
   onClick={(e) => { 
     e.stopPropagation(); 
     console.log("Unlock clicked, setting open to true"); 
     setUnlockOpen(true); 
   }}
+- Note: If no console log appears when clicking in read-only mode, it indicates the click handler is not firing due to a disabled ancestor.
 
-Step 2 — Check the unlock modal rendering:
-Show me the exact JSX that renders when unlockOpen 
-is true. Is it:
-  {unlockOpen && <div ...>modal content</div>}
-or something else?
+Findings
 
-Step 3 — Check for global click handlers:
-Search ReviewInfoSection.tsx and its parent page for 
-any document.addEventListener('click', ...) or 
-useEffect with click handlers that might close modals.
+1) Is the grid inside a <fieldset disabled>?
+- Yes (via the parent page wrapper). In page.tsx, the ActiveComponent (which renders ReviewInfoSection, including the Review Status grid and the button) is wrapped in a disabled fieldset when not editing:
+  {isEditing ? (
+    <ActiveComponent />
+  ) : (
+    <fieldset disabled className="contents">
+      <ActiveComponent />
+    </fieldset>
+  )}
+- A disabled fieldset disables all descendant form controls (including <button>), preventing their click handlers from firing. This explains why the button is visible but does nothing in read-only mode.
 
-Step 4 — Check SectionCard:
-Read the SectionCard component file and show me how 
-it renders the actions prop — specifically whether 
-the actions area has any onClick, stopPropagation, 
-or pointer-events styling.
+2) Parent with pointer-events-none?
+- No. The Review Status SectionCard and its wrappers do not use pointer-events-none. The SectionCard implementation has no pointer-events styling on the actions area.
 
-Report all findings before making any further changes.
+3) Transparent overlay absolutely positioned over the grid?
+- No overlay is present over the grid during normal display. Overlays exist only when a modal is open (unlockOpen, reconsiderationOpen, appealOpen), not before the click. Therefore, the overlay is not the cause of the initial click issue.
+
+4) Grid container onClick consuming events?
+- No. The grid container is:
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  and does not have any onClick handlers.
+
+Exact JSX from the outermost wrapper of Review Status down to the grid div (current code in ReviewInfoSection.tsx)
+<SectionCard title="Review Status" icon={<img src="/assets/ReviewStatus_Icon.png" alt="Review Status" className="h-5 w-5" />} className="col-span-1 md:col-span-2" actions={
+  s?.mgrApproval ? (
+    <button
+      type="button"
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        console.log("Unlock clicked, setting open to true"); 
+        setUnlockOpen(true); 
+      }}
+      className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-3 py-1.5 shadow"
+    >
+      Unlock Review
+    </button>
+  ) : null
+}>
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    ...
+  </div>
+</SectionCard>
+
+Step 2 — Unlock modal rendering
+- The unlock modal is rendered with a straightforward conditional:
+  {unlockOpen && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={() => setUnlockOpen(false)} />
+      <div className="relative z-10 w-[560px] max-w-[95vw] rounded-lg border border-slate-300 bg-white shadow-2xl">
+        ...
+        {/* Radio options */}
+        <label>GENERAL</label>
+        <label onChange={() => { setUnlockReason("RECONSIDERATION"); setUnlockOpen(false); setReconsiderationOpen(true); }}>RECONSIDERATION</label>
+        <label onChange={() => { setUnlockReason("APPEAL"); setUnlockOpen(false); setAppealOpen(true); }}>APPEAL</label>
+        ...
+      </div>
+    </div>
+  )}
+
+Step 3 — Global click handlers
+- ReviewInfoSection.tsx: No document.addEventListener('click', ...) and no useEffect registering global click handlers that would close the modal on click.
+- page.tsx (parent page): No document.addEventListener('click', ...) and no useEffect with click handlers. The only modals are the Loading and Saving Modals from a shared Dialog component, unrelated to this click.
+
+Step 4 — SectionCard actions area
+- SectionCard (frontend/src/app/review/[ecif]/review-info/components/ui.tsx) renders the actions prop without any onClick interception or pointer-events styling:
+  export function SectionCard(props: { ...; actions?: ReactNode }) {
+    return (
+      <section className={"bg-white border border-slate-200 rounded-lg " + (props.className ?? "")}>
+        <header className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">...</div>
+          {props.actions ? <div className="ml-2 shrink-0 text-slate-600">{props.actions}</div> : null}
+        </header>
+        <div className="p-6">{props.children}</div>
+      </section>
+    );
+  }
+- No stopPropagation, no pointer-events: none; it’s a simple container.
+
+Conclusion
+- Root cause: In read-only mode (isEditing=false), page.tsx wraps the entire ActiveComponent (including the Unlock Review button) in <fieldset disabled>. This disables button click handling, so onClick does not fire and unlockOpen never becomes true.
+- The earlier “full-width below section” working variant likely avoided being a disabled form control (e.g., a non-button element), or was positioned outside the disabled fieldset region. As a <button> within the disabled fieldset, it will not respond.
+
+Proposed fix (not applied yet; awaiting confirmation per instructions)
+- Move the Unlock Review trigger OUTSIDE the <fieldset disabled> in page.tsx while keeping it visually inside the Review Status card:
+  - Option A: Render an absolutely positioned trigger outside the fieldset (e.g., sibling to the fieldset) with CSS to position it in the card header.
+  - Option B: Expose a callback/slot from ReviewInfoSection to parent and render the actions button in page.tsx above/below the fieldset so it remains clickable in read-only mode.
+- Alternative mitigations (if keeping it inside): Use a non-form-control element (e.g., div role="button") for the trigger, but best practice is to keep semantic button and place it outside the disabled fieldset.
+
+Awaiting confirmation to implement the chosen approach.
