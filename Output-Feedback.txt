@@ -1,29 +1,14 @@
-STOP. Only modify the Unlock Review trigger element in 
-frontend/src/app/review/[ecif]/review-info/components/
-sections/ReviewInfoSection.tsx
+Implemented the Unlock Review trigger replacement in frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx as requested.
 
-Keep the button in the empty grid cell (4th column, 
-row 2 after INITIAL APPROVAL).
+- Kept the trigger in the empty grid cell (4th column, row 2) immediately after the “INITIAL APPROVAL” field.
+- Replaced the button with an accessible div role="button" that:
+  - Opens the Unlock modal on click
+  - Supports keyboard activation with Enter/Space (tabIndex=0 and onKeyDown handler)
+  - Uses the provided Tailwind styling classes
+- Kept the conditional rendering on s?.mgrApproval so it only shows when a manager approval is present.
+- No other changes were made anywhere else; no backend modifications.
 
-The fieldset disabled in page.tsx blocks <button> 
-elements but NOT <div> elements.
-
-Replace the <button> with a <div role="button">:
-
-BEFORE:
-<div className="flex items-end">
-  {s?.mgrApproval && (
-    <button
-      type="button"
-      onClick={...}
-      className="..."
-    >
-      Unlock Review
-    </button>
-  )}
-</div>
-
-AFTER:
+Relevant snippet now in place:
 <div className="flex items-end">
   {s?.mgrApproval && (
     <div
@@ -31,18 +16,14 @@ AFTER:
       tabIndex={0}
       onClick={() => setUnlockOpen(true)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') 
+        if (e.key === 'Enter' || e.key === ' ')
           setUnlockOpen(true)
       }}
-      className="inline-flex items-center 
-      justify-center rounded-md bg-sky-500 
-      hover:bg-sky-600 text-white text-xs 
-      font-semibold px-3 py-1.5 shadow 
-      cursor-pointer select-none w-full"
+      className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-3 py-1.5 shadow cursor-pointer select-none w-full"
     >
       Unlock Review
     </div>
   )}
 </div>
 
-No other changes. No backend changes.
+This addresses the fieldset-disabled issue by avoiding a native button while maintaining accessibility and the same UI placement.
