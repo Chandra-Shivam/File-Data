@@ -1,59 +1,44 @@
-Applied targeted visual fixes in frontend/src/app/review-queue/page.tsx only, with no backend or functional changes.
+Read AGENTS.md and UI-PATTERNS.md first.
 
-BUG 1 — Column headers not visible in review table
-- Root cause: The DataTable component supports a theadClassName prop for header styling. It was not being passed, so the header row used the default styles, and after previous edits the header appeared blank.
-- Fix: Pass theadClassName to DataTable with the brand header styles (bg-[#1F3864] text-white).
+IMPORTANT: Read these files before writing any code:
+1. Find and read the file that renders the Review Info 
+   page with "Review Details", "Assignments", and 
+   "Review Status" sections. Search under:
+   frontend/src/app/review/[ecif]/review-info/
+2. Read any sub-components imported for those 3 sections
+3. Report the current file structure and component names
 
-Before:
-  <DataTable&lt;ReviewRow&gt;
-    columns={columns}
-    rows={sortedRows}
-    sortBy={sortBy}
-    sortDir={sortDir}
-    onSort={handleSort}
-    selectedId={selectedId}
-    getRowId={(r) =&gt; r.id}
-    onSelect={setSelectedId}
-    onOpen={(r) =&gt; { void handleOpen(r); }}
-    tableLabel="Review Queue"
-    className="w-full"
-    selectedRowClassName="bg-slate-100"
-    rowActions={(r) =&gt; (
-      ...
-    )}
-  />
+Then apply these layout fixes — frontend only, 
+no backend changes, no new packages:
 
-After:
-  <DataTable&lt;ReviewRow&gt;
-    columns={columns}
-    rows={sortedRows}
-    sortBy={sortBy}
-    sortDir={sortDir}
-    onSort={handleSort}
-    selectedId={selectedId}
-    getRowId={(r) =&gt; r.id}
-    onSelect={setSelectedId}
-    onOpen={(r) =&gt; { void handleOpen(r); }}
-    tableLabel="Review Queue"
-    className="w-full"
-    theadClassName="bg-[#1F3864] text-white"
-    selectedRowClassName="bg-slate-100"
-    rowActions={(r) =&gt; (
-      ...
-    )}
-  />
+SECTION 1 — Review Details: 2-column grid throughout
+- Remove any mixing of full-width and half-width fields
+- All fields equal width in 2-column layout
+- Order: Sample ID | Review ID, Sample Target | Review Type,
+  Sample Date | Sample Type
 
-Validation:
-- DataTable.tsx definition includes theadClassName in DataTableProps and applies it to the thead element. This is the correct way to style the header.
+SECTION 2 — Assignments: 2-column grid
+- Reviewer Name | Reviewer Email
+- Manager | Manager Email
+- Examiner in Charge | (empty)
 
-BUG 2 — Extra empty space below Totals row (Progress Status panel)
-- Root cause: The Progress Status card wrapper included a fixed height class (h-full), causing extra vertical space regardless of content height.
-- Fix: Remove h-full so the panel sizes to content.
+SECTION 3 — Review Status: 4-column grid
+- CRO Start | CRO Complete | Distributed | Finalized
+- Approver Name | MGR Approval | Initial Approval | (empty)
+- Second Reviewer | Second Review Date | Prior Review ID | Prior Review Date
+- Review Locked | Sample Closed | Reconsidered | Appealed (checkboxes inline)
+- Cancel Review | Cancellation Rationale | Reconsideration Decision | Appealed Decision
 
-Before:
-  &lt;div className="rounded border border-slate-200 overflow-hidden h-full"&gt;
+GENERAL RULES for all sections:
+- Input fields: consistent h-9 height
+- Labels: text-xs text-slate-500 font-medium uppercase 
+  tracking-wider mb-1 (match existing label pattern)
+- Gap between fields: gap-4
+- Section cards: bg-white border border-slate-200 
+  rounded-lg p-6
+- Checkboxes: always inline with label on same line
+- Read-only inputs: bg-slate-50 border-slate-200
 
-After:
-  &lt;div className="rounded border border-slate-200 overflow-hidden"&gt;
-
-No other changes were made. No new packages, and no backend files were touched.
+Do not change any functionality.
+Do not rewrite pages from scratch.
+Show exact file paths being modified.
