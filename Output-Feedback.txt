@@ -1,44 +1,19 @@
 Read AGENTS.md and UI-PATTERNS.md first.
 
-IMPORTANT: Read these files before writing any code:
-1. Find and read the file that renders the Review Info 
-   page with "Review Details", "Assignments", and 
-   "Review Status" sections. Search under:
-   frontend/src/app/review/[ecif]/review-info/
-2. Read any sub-components imported for those 3 sections
-3. Report the current file structure and component names
+Working on the Review Info page under:
+frontend/src/app/review/[ecif]/review-info/
 
-Then apply these layout fixes — frontend only, 
-no backend changes, no new packages:
+TASK 1 — CHECK ONLY, no changes yet:
+Search the entire frontend codebase for any of these:
+- "unlock" (case insensitive)
+- "UnlockReview" or "unlock-review"
+- "Reconsideration" component or modal
+- "Appeal" component or modal
 
-SECTION 1 — Review Details: 2-column grid throughout
-- Remove any mixing of full-width and half-width fields
-- All fields equal width in 2-column layout
-- Order: Sample ID | Review ID, Sample Target | Review Type,
-  Sample Date | Sample Type
+Report exactly what you find:
+1. File paths
+2. Whether it's implemented or just a placeholder
+3. What backend endpoints exist for unlock/reconsideration/appeal
+   (check backend/src/Casrr.Api/Controllers/)
 
-SECTION 2 — Assignments: 2-column grid
-- Reviewer Name | Reviewer Email
-- Manager | Manager Email
-- Examiner in Charge | (empty)
-
-SECTION 3 — Review Status: 4-column grid
-- CRO Start | CRO Complete | Distributed | Finalized
-- Approver Name | MGR Approval | Initial Approval | (empty)
-- Second Reviewer | Second Review Date | Prior Review ID | Prior Review Date
-- Review Locked | Sample Closed | Reconsidered | Appealed (checkboxes inline)
-- Cancel Review | Cancellation Rationale | Reconsideration Decision | Appealed Decision
-
-GENERAL RULES for all sections:
-- Input fields: consistent h-9 height
-- Labels: text-xs text-slate-500 font-medium uppercase 
-  tracking-wider mb-1 (match existing label pattern)
-- Gap between fields: gap-4
-- Section cards: bg-white border border-slate-200 
-  rounded-lg p-6
-- Checkboxes: always inline with label on same line
-- Read-only inputs: bg-slate-50 border-slate-200
-
-Do not change any functionality.
-Do not rewrite pages from scratch.
-Show exact file paths being modified.
+Do NOT make any changes. Report findings only.
