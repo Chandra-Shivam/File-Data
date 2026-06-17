@@ -1,37 +1,67 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+Answers after reading frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
 
-Read this file in full:
-frontend/src/app/review/[ecif]/review-info/components/
-sections/ReviewInfoSection.tsx
-
-Find the "Unlock Review" button and answer:
-1. What is the current visibility condition on the button?
-   (Is it conditionally rendered? What condition controls it?)
-2. What field/value represents Manager Approval Date 
-   in this component? (check useReviewInfo hook too)
-3. Is the button currently hidden because the condition 
-   is wrong, missing, or because mgrApproval is null 
-   in the current test data?
-
-Then make this fix:
-- The Unlock Review button must be visible ONLY when 
-  Manager Approval Date (mgrApproval) is populated 
-  (not null, not empty string)
-- If the button already has this condition, show me 
-  the exact line and explain why it is not working
-- If the condition is missing, add:
-  {mgrApproval && (
-    <Button ...>Unlock Review</Button>
+1) Current visibility condition on the “Unlock Review” button (before fix)
+- It was conditionally rendered based on local state reviewLocked:
+  {reviewLocked && (
+    <button ...>Unlock Review</button>
   )}
-  where mgrApproval is the correct field name from 
-  useReviewInfo
+- reviewLocked defaults to false and is only toggled by the “REVIEW LOCKED” checkbox in this component. Because that checkbox is disabled when not editing (disabled={!isEditing}), the button could remain hidden even when Manager Approval is present. This is the wrong condition per requirements.
 
-Also verify:
-- Clicking Unlock Review opens the radio option popup ✓
-- Clicking outside popup without selecting restores the button ✓  
-- Selecting option 2 opens Reconsideration modal ✓
-- Selecting option 3 opens Appeal modal ✓
+2) Field/value for Manager Approval Date in this component
+- The Manager Approval Date is rendered from the status object as s?.mgrApproval:
+  <Field label="MGR APPROVAL" value={s?.mgrApproval ?? ""} />
+- This s value comes from useReviewInfo’s status mapping; mgrApproval is the field representing Manager Approval Date.
 
-Only modify ReviewInfoSection.tsx if a fix is needed.
-Show exact before/after.
-No backend changes.
+3) Why the button was hidden
+- The condition was wrong/missing. It used reviewLocked instead of the required mgrApproval presence check, so the button visibility did not depend on Manager Approval at all.
+- This could hide the button even when mgrApproval is populated, because reviewLocked starts false and cannot be toggled in read-only mode.
+
+Fix applied (frontend-only, single file)
+
+- File modified:
+  - frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
+
+- Exact before/after around the button:
+
+Before
+- Conditional render used reviewLocked:
+  {reviewLocked && (
+    <button
+      type="button"
+      onClick={() => setUnlockOpen(true)}
+      className="inline-flex items-center justify-center w-full rounded-md bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold px-4 py-3 shadow mt-4"
+    >
+      Unlock Review
+    </button>
+  )}
+
+After
+- Conditional render now uses Manager Approval Date from useReviewInfo status:
+  {s?.mgrApproval && (
+    <button
+      type="button"
+      onClick={() => setUnlockOpen(true)}
+      className="inline-flex items-center justify-center w-full rounded-md bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold px-4 py-3 shadow mt-4"
+    >
+      Unlock Review
+    </button>
+  )}
+
+- Rationale:
+  - This matches the requirement “visible ONLY when Manager Approval Date (mgrApproval) is populated (not null, not empty string).”
+  - In JavaScript, a non-empty string is truthy and an empty string is falsy, so s?.mgrApproval && (...) satisfies the “not null, not empty string” rule.
+
+Interaction verification (no code changes required here; current implementation already satisfies)
+- Clicking “Unlock Review” opens the radio option popup: ✓
+  - onClick={() => setUnlockOpen(true)} shows the popup.
+
+- Clicking outside the popup without selecting restores the button: ✓
+  - The backdrop onClick={() => setUnlockOpen(false)} closes the popup. Since visibility now depends on s?.mgrApproval, the button remains visible as long as mgrApproval is populated.
+
+- Selecting option 2 opens Reconsideration modal: ✓
+  - RECONSIDERATION radio onChange: sets unlockReason, closes unlock modal, then setReconsiderationOpen(true).
+
+- Selecting option 3 opens Appeal modal: ✓
+  - APPEAL radio onChange: sets unlockReason, closes unlock modal, then setAppealOpen(true).
+
+No backend changes. Only ReviewInfoSection.tsx was modified to correct the visibility condition.
