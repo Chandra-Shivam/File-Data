@@ -1,85 +1,27 @@
-Task 1 — Verification report for “My View” dropdown
+STOP. Only fix these two visual bugs in 
+frontend/src/app/review-queue/page.tsx.
+No other changes. No backend files.
 
-1) Service function called when My View changes
-- Location: frontend/src/app/review-queue/page.tsx
-- Behavior: The dropdown is bound to local state only:
-  - State: const [myView, setMyView] = useState<string>("my");
-  - onChange: onChange={(e) => setMyView(e.target.value)}
-- There is no useEffect that depends on myView, and no API call is triggered from this change.
-- Conclusion: No service function is called when My View changes; it updates local state only.
+BUG 1 — Column headers not visible in review table
+The column headers (eCIF #, Borrower Name / Linesheet, 
+Reviewer, Exposure, Bank PD, CAS PD, Completed) are 
+not visible — there is a blank row where they should be.
 
-2) Full API call used by the Review Queue page
-- Frontend function: getReviewQueuePage(sampleId?: number)
-  - Source: frontend/src/services/api/reviews.ts
-  - Endpoint: GET /api/v1/reviews/queue[?sampleId=...]
-  - Query parameters: optional sampleId only
-- Backend flow:
-  - Controller: backend/src/Casrr.Api/Controllers/ReviewController.cs
-    - Action: [HttpGet("queue")] GetReviewQueuePage([FromQuery] int? sampleId, CancellationToken ct)
-    - Resolves employee number (emp) from the auth principal, calls service: _svc.GetReviewQueuePageAsync(sampleId, emp, ct)
-  - Service: backend/src/Casrr.Application/Services/ReviewService.cs
-    - Method: GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, CancellationToken ct)
-    - Calls repo: _repo.GetQueuePageAsync(sampleId, ct)
-  - Repository: backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
-    - Method: GetQueuePageAsync(int? sampleId, CancellationToken ct)
-      - Progress counts via EF Core: _db.Reviews.Where(Cancelled != true).OptionalFilter(Sample_id == sampleId)
-        - Table: dbo.[02_CORE_02_Reviews]
-      - Queue rows via ADO.NET: SELECT … FROM dbo.[02_CORE_02_Reviews] WHERE Cancelled = 0 AND (Sample_id = @sampleId OR @sampleId IS NULL)
-        - Table: dbo.[02_CORE_02_Reviews]
-      - Sample dropdown (last 50) via EF Core from Samples
-        - Table: dbo.[02_CORE_01_Samples]
-- Note: The resolved employee number is not used by the repository in this flow.
+Check: does the DataTable component accept 
+theadClassName as a prop? If not, find how it actually 
+styles its header and apply bg-[#1F3864] text-white 
+the correct way for that component.
+If DataTable does not support custom header styling, 
+apply the brand blue header to the section title bar 
+above the table only and leave the DataTable header 
+as its default style.
 
-3) Is the My View filter parameter being sent to the backend, or client-side filtering?
-- No My View parameter is sent to the backend. Only sampleId is sent.
-- There is no client-side filtering bound to myView either (no filtering logic keyed off myView).
-- Conclusion: My View currently has no effect on data; it is neither server- nor client-filtering.
+BUG 2 — Extra empty space below Totals row
+There is a large empty white block below the Totals 
+row in the Progress Status panel. 
+Remove any h-full, min-h, or fixed height from the 
+Progress Status panel wrapper so it sizes to its 
+content naturally.
 
-4) Exact filter values in the UI
-- Values defined in page.tsx:
-  - "my" → "My View"
-  - "team" → "My Team"
-  - "dept" → "My Department"
-- No other options are present.
-
-Task 2 — Cleanup changes applied to frontend/src/app/review-queue/page.tsx
-
-Scope: Only styling/structure; no functional changes; no backend edits; no new packages.
-
-Summary of changes:
-- Progress Status panel
-  - Header uses brand style: bg-[#1F3864] text-white
-  - Rows are clean white with subtle separators: divide-y divide-slate-200; hover:bg-slate-50
-  - Counts right-aligned using text-right/tabular-nums on the value span
-  - Highlight row uses the existing p.highlight with visual emphasis: bg-slate-50 font-semibold
-
-- Review table (Draft Completed list)
-  - Section header styled as bg-[#1F3864] text-white
-  - DataTable header styled via theadClassName="bg-[#1F3864] text-white"
-  - Numeric columns right-aligned and monospaced:
-    - Exposure: "text-right tabular-nums text-slate-600 text-sm"
-    - Bank PD: "text-right tabular-nums text-slate-600 text-sm"
-    - CAS PD: "text-right tabular-nums text-slate-600 text-sm"
-  - Borrower Name cell remains slate-800 font-medium
-  - Selected row visual: selectedRowClassName="bg-slate-100"
-  - Existing PDF icon kept; alignment preserved in the borrower cell action area
-
-- Overall layout and cards
-  - Consistent spacing across sections: outer container with space-y-4; grid gap-4
-  - Panel/card wrappers standardized: bg-white border border-slate-200 rounded
-  - Ensured both panels align in height where suitable by adding h-full to wrappers
-
-- Select Sample and My View dropdowns
-  - Both use the existing Select component with consistent sizing
-  - Labels standardized: className "text-xs text-slate-600 mb-1"
-  - Select Sample now uses Select and shows “Loading samples…” placeholder appropriately
-
-Implementation notes (file-level):
-- frontend/src/app/review-queue/page.tsx
-  - Applied the brand header style to the Progress Status and Review table headers
-  - Right-aligned numeric columns (Exposure, Bank PD, CAS PD)
-  - Passed theadClassName and selectedRowClassName to DataTable usage for styling injection
-  - Replaced SearchableSelect usage for sample selection with the existing Select component to keep controls consistent
-  - Maintained all existing behavior for navigation, sorting, and opening details; no new API calls were introduced
-
-No backend files were modified. No packages were added.
+Show exact before/after for each fix.
+No functional changes. No new packages.
