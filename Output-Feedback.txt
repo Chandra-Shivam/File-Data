@@ -1,67 +1,48 @@
-Answers after reading frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
+STOP. Only modify the positioning of the Unlock Review 
+button in:
+frontend/src/app/review/[ecif]/review-info/components/
+sections/ReviewInfoSection.tsx
 
-1) Current visibility condition on the “Unlock Review” button (before fix)
-- It was conditionally rendered based on local state reviewLocked:
-  {reviewLocked && (
-    <button ...>Unlock Review</button>
-  )}
-- reviewLocked defaults to false and is only toggled by the “REVIEW LOCKED” checkbox in this component. Because that checkbox is disabled when not editing (disabled={!isEditing}), the button could remain hidden even when Manager Approval is present. This is the wrong condition per requirements.
+Current problem: The button sits below the entire 
+Review Status section as a full-width block (w-full, mt-4).
 
-2) Field/value for Manager Approval Date in this component
-- The Manager Approval Date is rendered from the status object as s?.mgrApproval:
-  <Field label="MGR APPROVAL" value={s?.mgrApproval ?? ""} />
-- This s value comes from useReviewInfo’s status mapping; mgrApproval is the field representing Manager Approval Date.
+Fix: Place the button inside the Review Status grid, 
+in the empty grid cell after "INITIAL APPROVAL" 
+(row 2, 4th column of the 4-column grid).
 
-3) Why the button was hidden
-- The condition was wrong/missing. It used reviewLocked instead of the required mgrApproval presence check, so the button visibility did not depend on Manager Approval at all.
-- This could hide the button even when mgrApproval is populated, because reviewLocked starts false and cannot be toggled in read-only mode.
+BEFORE (current — full width below section):
+{s?.mgrApproval && (
+  <button
+    type="button"
+    onClick={() => setUnlockOpen(true)}
+    className="inline-flex items-center justify-center 
+    w-full rounded-md bg-sky-500 hover:bg-sky-600 
+    text-white text-sm font-semibold px-4 py-3 
+    shadow mt-4"
+  >
+    Unlock Review
+  </button>
+)}
 
-Fix applied (frontend-only, single file)
+AFTER (inside grid, aligned with other fields):
+- Remove the standalone full-width button block
+- In the grid row that contains INITIAL APPROVAL, 
+  add a 4th cell with the button:
 
-- File modified:
-  - frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
-
-- Exact before/after around the button:
-
-Before
-- Conditional render used reviewLocked:
-  {reviewLocked && (
-    <button
-      type="button"
-      onClick={() => setUnlockOpen(true)}
-      className="inline-flex items-center justify-center w-full rounded-md bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold px-4 py-3 shadow mt-4"
-    >
-      Unlock Review
-    </button>
-  )}
-
-After
-- Conditional render now uses Manager Approval Date from useReviewInfo status:
+<div className="flex items-end">
   {s?.mgrApproval && (
     <button
       type="button"
       onClick={() => setUnlockOpen(true)}
-      className="inline-flex items-center justify-center w-full rounded-md bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold px-4 py-3 shadow mt-4"
+      className="inline-flex items-center justify-center 
+      rounded-md bg-sky-500 hover:bg-sky-600 text-white 
+      text-sm font-semibold px-4 py-2.5 shadow w-full"
     >
       Unlock Review
     </button>
   )}
+</div>
 
-- Rationale:
-  - This matches the requirement “visible ONLY when Manager Approval Date (mgrApproval) is populated (not null, not empty string).”
-  - In JavaScript, a non-empty string is truthy and an empty string is falsy, so s?.mgrApproval && (...) satisfies the “not null, not empty string” rule.
-
-Interaction verification (no code changes required here; current implementation already satisfies)
-- Clicking “Unlock Review” opens the radio option popup: ✓
-  - onClick={() => setUnlockOpen(true)} shows the popup.
-
-- Clicking outside the popup without selecting restores the button: ✓
-  - The backdrop onClick={() => setUnlockOpen(false)} closes the popup. Since visibility now depends on s?.mgrApproval, the button remains visible as long as mgrApproval is populated.
-
-- Selecting option 2 opens Reconsideration modal: ✓
-  - RECONSIDERATION radio onChange: sets unlockReason, closes unlock modal, then setReconsiderationOpen(true).
-
-- Selecting option 3 opens Appeal modal: ✓
-  - APPEAL radio onChange: sets unlockReason, closes unlock modal, then setAppealOpen(true).
-
-No backend changes. Only ReviewInfoSection.tsx was modified to correct the visibility condition.
+Show exact before/after of the grid row containing 
+INITIAL APPROVAL and the surrounding markup.
+No other changes. No backend changes.
