@@ -1,30 +1,34 @@
-STOP. Only modify this one file:
-frontend/src/app/review/[ecif]/review-info/page.tsx
+STOP. Only modify:
+frontend/src/app/review-queue/page.tsx
 
-Delete these exact lines and nothing else:
+Add an "Open" button in the last column of the review 
+table that opens the Review Form for that row.
 
-{mgrApproval && !isEditing && (
-  <div className="flex justify-end mb-2">
-    <button
-      type="button"
-      onClick={() => setUnlockOpen(true)}
-      className="inline-flex items-center justify-center 
-      rounded-md bg-sky-500 hover:bg-sky-600 text-white 
-      text-xs font-semibold px-3 py-1.5 shadow"
-    >
-      Unlock Review
-    </button>
-  </div>
-)}
+Before making any changes:
+1. Find the handleOpen function — show its signature
+2. Find where the Borrower Name click triggers 
+   handleOpen — show that code
+3. Find the column definitions for the DataTable — 
+   show the current columns array
 
-Also remove any state or variables that were added 
-ONLY to support this button and are no longer used 
-anywhere else in page.tsx:
-- const [unlockOpen, setUnlockOpen] = useState(false)
-- Any mgrApproval variable used only for this button
+Then add the Open button:
+- Add a new column at the end of the columns array 
+  after "Completed"
+- Column header: empty string ""
+- Cell: a small "Open" button that calls handleOpen(row)
+- The button must use a <div role="button"> NOT 
+  a native <button> (fieldset disabled issue applies 
+  here too if present — check)
+- Styling must match the existing page style:
+  - Look at what other action elements on this page 
+    use for their classes
+  - Use bg-[#1F3864] text-white text-xs font-semibold 
+    px-3 py-1 rounded hover:opacity-90 cursor-pointer
+  - Keep it compact — same size as the existing 
+    status badges on the page
 
-Verify each removed variable is not used elsewhere 
-in page.tsx before removing it.
+- e.stopPropagation() on click to prevent row 
+  double-click from also firing
 
-No other changes. No backend changes.
 Show exact before/after.
+No backend changes.
