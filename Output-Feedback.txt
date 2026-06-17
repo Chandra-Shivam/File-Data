@@ -1,14 +1,26 @@
-STOP. Search the entire frontend codebase for every 
-occurrence of "Unlock Review" text — not just 
-ReviewInfoSection.tsx.
-
-Run a search across ALL files under frontend/src/ for:
+Search results across frontend/src for:
 - "Unlock Review"
 - "unlockOpen"
 - "setUnlockOpen"
 
-List every file path where these appear.
-Then show me the exact JSX rendering "Unlock Review" 
-in each file that is NOT ReviewInfoSection.tsx.
+Files containing any of the above:
+- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
+  - Contains: "Unlock Review", "unlockOpen", "setUnlockOpen"
+- frontend/src/app/review/[ecif]/review-info/page.tsx
+  - Contains: "Unlock Review", "unlockOpen", "setUnlockOpen"
 
-Do NOT make any changes yet. Report findings only.
+Exact JSX rendering “Unlock Review” in files that are NOT ReviewInfoSection.tsx:
+
+File: frontend/src/app/review/[ecif]/review-info/page.tsx
+Snippet:
+{mgrApproval && !isEditing && (
+  <div className="flex justify-end mb-2">
+    <button
+      type="button"
+      onClick={() => setUnlockOpen(true)}
+      className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-3 py-1.5 shadow"
+    >
+      Unlock Review
+    </button>
+  </div>
+)}
