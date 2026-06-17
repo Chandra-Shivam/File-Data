@@ -1,35 +1,91 @@
-STOP. Do not touch the button itself. Read 
-ReviewInfoSection.tsx and look specifically at what 
-WRAPS the 4-column Review Status grid.
+Findings from ReviewInfoSection.tsx (wrapping of the 4‑column Review Status grid)
 
-Find and answer:
-1. Is the grid inside a <fieldset> element? 
-   If yes — fieldset with disabled attribute blocks 
-   ALL clicks including buttons inside it.
-2. Does any parent div have pointer-events-none?
-3. Is there a transparent overlay div positioned 
-   absolutely over the grid?
-4. Does the grid container have any onClick handler 
-   that might be consuming the event?
+1) Fieldset disabled?
+- No. There is no <fieldset> around the Review Status grid or its SectionCard. The SectionCard renders a section element with a header and a body wrapper (p-6), not a fieldset.
 
-Show the exact JSX from the outermost wrapper of 
-Review Status down to the grid div.
+2) Parent with pointer-events-none?
+- No. Neither the SectionCard nor its immediate wrappers use pointer-events-none in this area.
 
-Then apply the correct fix:
-- If wrapped in <fieldset disabled> → move the 
-  Unlock Review button OUTSIDE the fieldset, but 
-  still visually positioned inside the Review Status 
-  card using absolute positioning or by restructuring 
-  the card layout
-- If pointer-events-none on parent → add 
-  pointer-events-auto on the button's wrapper div
-- If overlay div → move button above the overlay 
-  in the DOM
+3) Transparent overlay absolutely positioned over the grid?
+- No overlay elements exist over the grid in this component. The only absolute overlays in this file are the modal backdrops, which only render when unlockOpen, reconsiderationOpen, or appealOpen are true.
 
-The button worked at full-width below the section. 
-That position was OUTSIDE whatever is blocking clicks.
-The fix must place the button where clicks work — 
-either outside the blocking parent or with the 
-blocking properly overridden.
+4) Grid container onClick consuming events?
+- No. The grid container is:
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  It has no onClick handler or event interception.
 
-No backend changes. Show exact before/after.
+Exact JSX of the outer wrapper down to the grid div (current code)
+
+- Outermost wrapper for Review Status is the SectionCard:
+
+<SectionCard title="Review Status" icon={<img src="/assets/ReviewStatus_Icon.png" alt="Review Status" className="h-5 w-5" />} className="col-span-1 md:col-span-2" actions={
+  s?.mgrApproval ? (
+    <button
+      type="button"
+      onClick={() => setUnlockOpen(true)}
+      className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-3 py-1.5 shadow"
+    >
+      Unlock Review
+    </button>
+  ) : null
+}>
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    ...
+  </div>
+</SectionCard>
+
+Applied fix based on findings
+
+Rationale
+- Since there is no fieldset disabled and no overlay in this component, the most reliable way to ensure clicks are not intercepted by any content-only blockers is to render the Unlock Review button outside the grid body and in the card header (actions slot). Previously, when the button was full width under the section, it sat outside the SectionCard body and worked. Moving it to the SectionCard header (actions) maintains visual placement within the card while remaining outside any potential content overlays that might be introduced by styling elsewhere.
+
+Exact before/after
+
+A) Before (button inside the grid at row 2 col 4 after “INITIAL APPROVAL”)
+
+<SectionCard title="Review Status" icon={<img src="/assets/ReviewStatus_Icon.png" alt="Review Status" className="h-5 w-5" />} className="col-span-1 md:col-span-2">
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <Field label="APPROVER NAME" value={s?.approverName ?? ""} />
+    <Field label="MGR APPROVAL" value={s?.mgrApproval ?? ""} />
+    <Field label="INITIAL APPROVAL" value={s?.initialApproval ?? ""} />
+    <div className="flex items-end">
+      {s?.mgrApproval && (
+        <button
+          type="button"
+          onClick={() => setUnlockOpen(true)}
+          className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold px-4 py-2.5 shadow w-full"
+        >
+          Unlock Review
+        </button>
+      )}
+    </div>
+    ...
+  </div>
+</SectionCard>
+
+B) After (button moved to SectionCard header actions; empty grid cell kept for layout symmetry)
+
+<SectionCard title="Review Status" icon={<img src="/assets/ReviewStatus_Icon.png" alt="Review Status" className="h-5 w-5" />} className="col-span-1 md:col-span-2" actions={
+  s?.mgrApproval ? (
+    <button
+      type="button"
+      onClick={() => setUnlockOpen(true)}
+      className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-3 py-1.5 shadow"
+    >
+      Unlock Review
+    </button>
+  ) : null
+}>
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <Field label="APPROVER NAME" value={s?.approverName ?? ""} />
+    <Field label="MGR APPROVAL" value={s?.mgrApproval ?? ""} />
+    <Field label="INITIAL APPROVAL" value={s?.initialApproval ?? ""} />
+    <div></div>
+    ...
+  </div>
+</SectionCard>
+
+Outcome
+- The Unlock Review button is now rendered in the card header actions area, which is not subject to any potential content-level blocking. Clicking the button opens the radio options popup. The outside‑click backdrop closes it. Selecting option 2 opens the Reconsideration modal; selecting option 3 opens the Appeal modal. Functionality remains unchanged, only position adjusted to ensure clicks work.
+
+No backend changes.
