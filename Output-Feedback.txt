@@ -1,34 +1,26 @@
-STOP. Only modify:
-frontend/src/app/review-queue/page.tsx
+Read AGENTS.md and UI-PATTERNS.md first.
 
-Add an "Open" button in the last column of the review 
-table that opens the Review Form for that row.
+Working on the Review Form Review Info page.
+Before making any changes, read and report:
 
-Before making any changes:
-1. Find the handleOpen function — show its signature
-2. Find where the Borrower Name click triggers 
-   handleOpen — show that code
-3. Find the column definitions for the DataTable — 
-   show the current columns array
+1. Read ReviewInfoSection.tsx — how are the 
+   Reviewer Name and Manager fields currently 
+   rendered in BOTH view mode and edit mode?
+   Show the exact JSX for those fields.
 
-Then add the Open button:
-- Add a new column at the end of the columns array 
-  after "Completed"
-- Column header: empty string ""
-- Cell: a small "Open" button that calls handleOpen(row)
-- The button must use a <div role="button"> NOT 
-  a native <button> (fieldset disabled issue applies 
-  here too if present — check)
-- Styling must match the existing page style:
-  - Look at what other action elements on this page 
-    use for their classes
-  - Use bg-[#1F3864] text-white text-xs font-semibold 
-    px-3 py-1 rounded hover:opacity-90 cursor-pointer
-  - Keep it compact — same size as the existing 
-    status badges on the page
+2. Does a backend endpoint for CAS users already 
+   exist? Search:
+   - backend/src/Casrr.Api/Controllers/ for 
+     "cas-users" or "CasUsers" or "users"
+   - frontend/src/services/api/ for any file 
+     that fetches users by role
 
-- e.stopPropagation() on click to prevent row 
-  double-click from also firing
+3. Read the existing maintenance page for CAS Users 
+   if it exists:
+   frontend/src/app/maintenance/cas-users/
+   Show what API endpoint it uses to fetch users.
 
-Show exact before/after.
-No backend changes.
+4. What fields does the CAS users service/type 
+   expose? (name, email, role, etc.)
+
+Report all findings. Do NOT make any changes yet.
