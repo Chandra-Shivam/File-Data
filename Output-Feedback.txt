@@ -1,142 +1,98 @@
-Applied Fixes 1–3 per instructions. Only modified:
-- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
-- No changes were needed in frontend/src/app/review/[ecif]/review-info/components/ui.tsx for this fix set.
+Read AGENTS.md and UI-PATTERNS.md first.
 
-Fix 1 — Dropdown selection not reflecting visually
+Only modify:
+frontend/src/app/review/[ecif]/review-info/components/
+sections/ReviewInfoSection.tsx
 
-Change 1a: Add local state for both dropdowns
+FIX 1 — Email fields not updating when dropdown changes
 
-Before:
-const { isEditing } = useEditMode();
-const changes = useFormChangesOptional();
-const [croUsers, setCroUsers] = useState<CasUser[]>([]);
-const [managerUsers, setManagerUsers] = useState<CasUser[]>([]);
+Root cause: The email fields use Field component with 
+defaultValue (uncontrolled) in edit mode. Calling 
+changes.setField updates the save context but does NOT 
+update the displayed value. Need local state for emails.
 
-After:
-const { isEditing } = useEditMode();
-const changes = useFormChangesOptional();
-const [croUsers, setCroUsers] = useState<CasUser[]>([]);
-const [managerUsers, setManagerUsers] = useState<CasUser[]>([]);
-const [selectedReviewer, setSelectedReviewer] = useState<string>(a?.reviewerName ?? "");
-const [selectedManager, setSelectedManager] = useState<string>(a?.managerName ?? "");
+Step A — Add local state for email values:
+const [selectedReviewerEmail, setSelectedReviewerEmail] = 
+  useState<string>(a?.reviewerEmail ?? "")
+const [selectedManagerEmail, setSelectedManagerEmail] = 
+  useState<string>(a?.managerEmail ?? "")
 
-Change 1b: Sync with server data when it loads
-
-Before:
+Step B — Sync with server data:
+Add to the existing sync useEffect:
 useEffect(() => {
-  listUsers()
-    .then((users) => {
-      setCroUsers(users.filter((u) => u.role === "CRO" && u.active));
-      setManagerUsers(users.filter((u) => u.role === "Manager" && u.active));
-    })
-    .catch(() => {});
-}, []);
+  if (a?.reviewerName) setSelectedReviewer(a.reviewerName)
+  if (a?.managerName) setSelectedManager(a.managerName)
+  if (a?.reviewerEmail) setSelectedReviewerEmail(a.reviewerEmail)
+  if (a?.managerEmail) setSelectedManagerEmail(a.managerEmail)
+}, [a?.reviewerName, a?.managerName, 
+    a?.reviewerEmail, a?.managerEmail])
 
-After:
-useEffect(() => {
-  listUsers()
-    .then((users) => {
-      setCroUsers(users.filter((u) => u.role === "CRO" && u.active));
-      setManagerUsers(users.filter((u) => u.role === "Manager" && u.active));
-    })
-    .catch(() => {});
-}, []);
+Step C — Update local email state when dropdown changes:
+In Reviewer Select onChange, add:
+  if (user) {
+    setSelectedReviewerEmail(user.email)  // ← ADD THIS
+    changes?.setField("reviewInfo", "reviewerEmail", user.email)
+  }
 
-useEffect(() => {
-  if (a?.reviewerName) setSelectedReviewer(a.reviewerName);
-  if (a?.managerName) setSelectedManager(a.managerName);
-}, [a?.reviewerName, a?.managerName]);
+In Manager Select onChange, add:
+  if (user) {
+    setSelectedManagerEmail(user.email)  // ← ADD THIS
+    changes?.setField("reviewInfo", "managerEmail", user.email)
+  }
 
-Change 1c: Reviewer Select value and onChange
+Step D — Replace email Field rendering in edit mode:
+Find the Reviewer Email rendering in edit mode and 
+replace the Field component with a controlled input:
 
-Before (value and onChange):
-<Select
-  size="sm"
-  className="bg-white w-full"
-  value={a?.reviewerName ?? ""}
-  onChange={(e) => {
-    const user = croUsers.find(
-      (u) => u.name === e.target.value
-    );
-    changes?.setField("reviewInfo", "reviewerName", e.target.value);
-    if (user) {
-      changes?.setField("reviewInfo", "reviewerEmail", user.email);
-    }
-  }}
->
+{isEditing ? (
+  <div className="flex flex-col gap-1">
+    <label className="text-xs text-slate-500 font-medium 
+      uppercase tracking-wider">REVIEWER EMAIL</label>
+    <input
+      className="w-full h-9 border border-slate-300 
+      rounded px-2 text-sm bg-white"
+      value={selectedReviewerEmail}
+      onChange={(e) => {
+        setSelectedReviewerEmail(e.target.value)
+        changes?.setField("reviewInfo", "reviewerEmail", 
+          e.target.value)
+      }}
+    />
+  </div>
+) : (
+  // keep existing mailto link rendering exactly as is
+)}
 
-After (value and onChange):
-<Select
-  size="sm"
-  className="bg-white w-full"
-  value={selectedReviewer}
-  onChange={(e) => {
-    setSelectedReviewer(e.target.value);
-    const user = croUsers.find(
-      (u) => u.name === e.target.value
-    );
-    changes?.setField("reviewInfo", "reviewerName", e.target.value);
-    if (user) {
-      changes?.setField("reviewInfo", "reviewerEmail", user.email);
-    }
-  }}
->
+Apply identical pattern for Manager Email using 
+selectedManagerEmail and setSelectedManagerEmail and 
+field name "managerEmail".
 
-Change 1d: Manager Select value and onChange
+FIX 2 — Examiner In Charge still editable in edit mode
+Root cause: Removing section/name from Field stops 
+saving changes but still renders an editable input.
 
-Before (value and onChange):
-<Select
-  size="sm"
-  className="bg-white w-full"
-  value={a?.managerName ?? ""}
-  onChange={(e) => {
-    const user = managerUsers.find(
-      (u) => u.name === e.target.value
-    );
-    changes?.setField("reviewInfo", "managerName", e.target.value);
-    if (user) {
-      changes?.setField("reviewInfo", "managerEmail", user.email);
-    }
-  }}
->
+Replace the Examiner In Charge Field entirely with a 
+hardcoded read-only input that never changes regardless 
+of isEditing:
 
-After (value and onChange):
-<Select
-  size="sm"
-  className="bg-white w-full"
-  value={selectedManager}
-  onChange={(e) => {
-    setSelectedManager(e.target.value);
-    const user = managerUsers.find(
-      (u) => u.name === e.target.value
-    );
-    changes?.setField("reviewInfo", "managerName", e.target.value);
-    if (user) {
-      changes?.setField("reviewInfo", "managerEmail", user.email);
-    }
-  }}
->
+BEFORE:
+<Field label="EXAMINER IN CHARGE" 
+  value={a?.examinerInCharge ?? ""} />
 
-Fix 2 — Examiner In Charge always read-only
+AFTER:
+<div className="flex flex-col gap-1">
+  <label className="text-xs text-slate-500 font-medium 
+    uppercase tracking-wider">EXAMINER IN CHARGE</label>
+  <input
+    className="w-full h-9 border border-slate-200 
+    rounded px-2 text-sm bg-slate-100 text-slate-500 
+    cursor-not-allowed"
+    value={a?.examinerInCharge ?? ""}
+    readOnly
+  />
+</div>
 
-Before:
-<Field label="Examiner in Charge" value={a?.examinerInCharge ?? ""} section="reviewInfo" name="examinerInCharge" />
+This always shows the disabled styling regardless of 
+edit mode — no conditional rendering needed.
 
-After:
-<Field label="EXAMINER IN CHARGE" value={a?.examinerInCharge ?? ""} />
-
-Fix 3 — Cancellation Rationale disabled styling in view mode
-
-Exact view-mode select before/after:
-
-Before (single select with disabled={!isEditing}):
-<select className="w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white" defaultValue="" disabled={!isEditing}>
-
-After (explicit view-mode branch with disabled styling):
-<select className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-100 text-slate-500 cursor-not-allowed" defaultValue="" disabled>
-
-Notes
-- No backend changes.
-- No modifications were required in components/ui.tsx for this fix set. The disabled styling change for the view-mode Cancellation Rationale select is scoped and implemented directly in ReviewInfoSection.tsx per the instructions.
-
-All requested changes implemented precisely with the exact before/after lines shown.
+No backend changes. Show exact before/after.
