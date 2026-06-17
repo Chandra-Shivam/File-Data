@@ -1,26 +1,30 @@
-Search results across frontend/src for:
-- "Unlock Review"
-- "unlockOpen"
-- "setUnlockOpen"
+STOP. Only modify this one file:
+frontend/src/app/review/[ecif]/review-info/page.tsx
 
-Files containing any of the above:
-- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
-  - Contains: "Unlock Review", "unlockOpen", "setUnlockOpen"
-- frontend/src/app/review/[ecif]/review-info/page.tsx
-  - Contains: "Unlock Review", "unlockOpen", "setUnlockOpen"
+Delete these exact lines and nothing else:
 
-Exact JSX rendering “Unlock Review” in files that are NOT ReviewInfoSection.tsx:
-
-File: frontend/src/app/review/[ecif]/review-info/page.tsx
-Snippet:
 {mgrApproval && !isEditing && (
   <div className="flex justify-end mb-2">
     <button
       type="button"
       onClick={() => setUnlockOpen(true)}
-      className="inline-flex items-center justify-center rounded-md bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold px-3 py-1.5 shadow"
+      className="inline-flex items-center justify-center 
+      rounded-md bg-sky-500 hover:bg-sky-600 text-white 
+      text-xs font-semibold px-3 py-1.5 shadow"
     >
       Unlock Review
     </button>
   </div>
 )}
+
+Also remove any state or variables that were added 
+ONLY to support this button and are no longer used 
+anywhere else in page.tsx:
+- const [unlockOpen, setUnlockOpen] = useState(false)
+- Any mgrApproval variable used only for this button
+
+Verify each removed variable is not used elsewhere 
+in page.tsx before removing it.
+
+No other changes. No backend changes.
+Show exact before/after.
