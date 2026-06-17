@@ -52,14 +52,14 @@ export default function DataTable<T>({
   tableLabel,
   className,
   bodyClassName,
-  theadClassName,
+  theadClassName = "bg-gray-50 text-gray-800",
   showSelection = true,
   selectedRowClassName = "bg-gray-100",
   editingRowClassName = "bg-amber-100 outline outline-2 outline-amber-500 shadow-[inset_4px_0_0_#f59e0b]",
 }: DataTableProps<T>) {
 const tableClasses = "min-w-full text-sm border border-slate-200 rounded-lg overflow-hidden shadow-sm";
 const theadClasses =
-    "sticky top-0 z-10 bg-gray-50 text-xs font-medium text-gray-800 border-b border-slate-200";
+    "sticky top-0 z-10 text-xs font-medium border-b border-slate-200";
 const rowBase =
     "group border-t border-slate-200 odd:bg-white hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-[color:var(--brand-primary)]/50 transition-colors cursor-pointer";
 
@@ -105,7 +105,9 @@ className={cx("px-3 py-2 text-left select-none whitespace-nowrap", col.sortable 
             </th>
           ))}
           {/* Actions column */}
-<th className="px-3 py-2 text-left w-40 whitespace-nowrap"><span className="sr-only">Actions</span></th>
+          {rowActions && (
+            <th className="px-3 py-2 text-left w-40 whitespace-nowrap"><span className="sr-only">Actions</span></th>
+          )}
         </tr>
       </thead>
       <tbody className={bodyClassName}>
@@ -155,15 +157,17 @@ className={cx("px-3 py-2 text-left select-none whitespace-nowrap", col.sortable 
                   {col.render ? col.render(row) : String((row as any)[col.key])}
                 </td>
               ))}
-<td className="px-3 py-2 whitespace-nowrap">
-                {rowActions ? rowActions(row) : null}
-              </td>
+              {rowActions && (
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {rowActions(row)}
+                </td>
+              )}
             </tr>
           );
         })}
         {rows.length === 0 && (
           <tr>
-            <td colSpan={columns.length + (showSelection ? 2 : 1)} className="px-3 py-6 text-center text-sm text-gray-500">
+            <td colSpan={columns.length + (showSelection ? 1 : 0) + (rowActions ? 1 : 0)} className="px-3 py-6 text-center text-sm text-gray-500">
               No records match the current criteria.
             </td>
           </tr>

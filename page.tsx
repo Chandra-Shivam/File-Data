@@ -7,7 +7,6 @@ import DataTable, { Column } from "@/components/table/DataTable";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Dialog";
-import { IconEye } from "@/components/ui/icons";
 import ReviewPDFModal from "@/components/pdf/ReviewPDFModal";
 import { searchSamples } from "@/services/api/samples";
 import { getReviewByKeys, getReviewQueuePage, ReviewQueueRow } from "@/services/api/reviews";
@@ -169,9 +168,9 @@ export default function ReviewQueuePage() {
         },
       },
       { key: "reviewer", header: "Reviewer", sortable: true, cellClassName: "text-slate-600 text-sm" },
-      { key: "exposure", header: "Exposure", sortable: true, cellClassName: "text-right tabular-nums text-slate-600 text-sm" },
-      { key: "bankPd", header: "Bank PD", sortable: true, cellClassName: "text-right tabular-nums text-slate-600 text-sm" },
-      { key: "casPd", header: "CAS PD", sortable: true, cellClassName: "text-right tabular-nums text-slate-600 text-sm" },
+      { key: "exposure", header: "Exposure", sortable: true, className: "text-right", cellClassName: "text-right tabular-nums text-slate-600 text-sm" },
+      { key: "bankPd", header: "Bank PD", sortable: true, className: "text-right", cellClassName: "text-right tabular-nums text-slate-600 text-sm" },
+      { key: "casPd", header: "CAS PD", sortable: true, className: "text-right", cellClassName: "text-right tabular-nums text-slate-600 text-sm" },
       { key: "completed", header: "Completed", sortable: true, cellClassName: "tabular-nums text-slate-600 text-sm" },
     ],
     []
@@ -377,25 +376,6 @@ export default function ReviewQueuePage() {
                 className="w-full"
                 theadClassName="bg-[#1F3864] text-white"
                 selectedRowClassName="bg-slate-100"
-                rowActions={(r) => (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="xxs"
-                      variant="accent"
-                      onClick={() => void handleOpen(r)}
-                    >
-                      Open
-                    </Button>
-                    <button
-                      type="button"
-                      className="text-slate-600 hover:text-slate-900"
-                      title="Open CAS Docs"
-                      onClick={() => window.open('/assets/FHB_Logo.png', '_blank')}
-                    >
-                      <IconEye size={14} />
-                    </button>
-                  </div>
-                )}
               />
               <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200">
                 Tip: Double-click a row or press Enter/Space to open.
