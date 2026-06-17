@@ -1,26 +1,115 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+Report: Review Form — Review Info page
 
-Working on the Review Form Review Info page.
-Before making any changes, read and report:
+1) How “Reviewer Name” and “Manager” are rendered in view vs edit (exact JSX)
 
-1. Read ReviewInfoSection.tsx — how are the 
-   Reviewer Name and Manager fields currently 
-   rendered in BOTH view mode and edit mode?
-   Show the exact JSX for those fields.
+In ReviewInfoSection.tsx (Assignments card), both fields are rendered via the shared Field component:
+- Reviewer Name (invocation)
+  &lt;Field label="Reviewer Name" value={a?.reviewerName ?? ""} section="reviewInfo" name="reviewerName" /&gt;
 
-2. Does a backend endpoint for CAS users already 
-   exist? Search:
-   - backend/src/Casrr.Api/Controllers/ for 
-     "cas-users" or "CasUsers" or "users"
-   - frontend/src/services/api/ for any file 
-     that fetches users by role
+- Manager (name) (invocation)
+  &lt;Field label="Manager" value={a?.managerName ?? ""} section="reviewInfo" name="managerName" /&gt;
 
-3. Read the existing maintenance page for CAS Users 
-   if it exists:
-   frontend/src/app/maintenance/cas-users/
-   Show what API endpoint it uses to fetch users.
+The Field component (frontend/src/app/review/[ecif]/review-info/components/ui.tsx) switches its JSX based on edit mode:
 
-4. What fields does the CAS users service/type 
-   expose? (name, email, role, etc.)
+- Edit mode (isEditing === true)
+  &lt;input
+    className="w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white"
+    defaultValue={value ?? ""}
+    onChange={(e) =&gt; {
+      if (changes &amp;&amp; section &amp;&amp; name) {
+        changes.setField(section, name, e.target.value);
+      }
+    }}
+  /&gt;
 
-Report all findings. Do NOT make any changes yet.
+- View mode (isEditing === false)
+  &lt;input
+    className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-50"
+    value={value ?? ""}
+    readOnly
+  /&gt;
+
+2) Backend endpoint for CAS users and any frontend “fetch by role”
+
+- Backend endpoint exists
+  Controller: backend/src/Casrr.Api/Controllers/CasUsersController.cs
+  Route prefix: [Route("api/v1/cas-users")]
+  Endpoints implemented:
+  - GET /api/v1/cas-users
+  - GET /api/v1/cas-users/{id}
+  - POST /api/v1/cas-users
+  - PUT /api/v1/cas-users/{id}
+  - DELETE /api/v1/cas-users/{id}
+  Auth policy: [Authorize(Policy = "RequireActiveUser")]
+
+- Frontend services “fetch users by role”
+  File: frontend/src/services/api/casUsers.ts
+  There is no function that fetches users by role (no role-filtered path or query). Only listUsers (GET /api/v1/cas-users) and CRUD by id.
+
+3) Existing CAS Users maintenance page and the API it uses
+
+- Page exists
+  Path: frontend/src/app/maintenance/cas-users/page.tsx
+  Import:
+  import { listUsers, createUser, updateUser, deleteUser, isConflictError, type CasUser } from "@/services/api/casUsers";
+  Usage: listUsers() is called in useEffect to load data.
+
+- API endpoint used (from the service)
+  In frontend/src/services/api/casUsers.ts:
+  export async function listUsers(): Promise&lt;CasUser[]&gt; {
+    const path = `/api/v1/cas-users`;
+    return await get&lt;CasUser[]&gt;(path);
+  }
+
+4) CAS users service/type fields
+
+In frontend/src/services/api/casUsers.ts:
+- CasUser:
+  {
+    id: string;
+    name: string;
+    firstName: string;
+    lastName: string;
+    title: string;
+    email: string;
+    manager: string;
+    managerEmail: string;
+    role: string;
+    active: boolean;
+    adminRights: boolean;
+    approvalRights: boolean;
+  }
+
+- CreateCasUserDto:
+  {
+    id: string;
+    name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    title?: string | null;
+    email?: string | null;
+    manager?: string | null;
+    managerEmail?: string | null;
+    role?: string | null;
+    active?: boolean | null;
+    adminRights?: boolean | null;
+    approvalRights?: boolean | null;
+  }
+
+- UpdateCasUserDto:
+  {
+    name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    title?: string | null;
+    email?: string | null;
+    manager?: string | null;
+    managerEmail?: string | null;
+    role?: string | null;
+    active?: boolean | null;
+    adminRights?: boolean | null;
+    approvalRights?: boolean | null;
+  }
+
+Notes
+- Reviewer Email and Manager Email in ReviewInfoSection.tsx are special-cased: in view mode with a value, they render as a mailto: link; otherwise they render via Field. This does not affect “Reviewer Name” and “Manager” which always go through Field as shown above.
