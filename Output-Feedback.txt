@@ -1,10 +1,49 @@
-SELECT 
-    COLUMN_NAME,
-    DATA_TYPE,
-    CHARACTER_MAXIMUM_LENGTH,
-    NUMERIC_PRECISION,
-    NUMERIC_SCALE,
-    IS_NULLABLE
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'YourTableName'
-ORDER BY ORDINAL_POSITION;
+Read AGENTS.md and UI-PATTERNS.md first.
+
+Working on frontend/src/app/review-queue/page.tsx.
+Do NOT touch backend files.
+
+TASK 1 — VERIFY My View functionality (report only, 
+no changes yet):
+1. Find the service function called when My View 
+   dropdown changes
+2. Show the full API call — what endpoint, what 
+   parameters, what SQL table does it query 
+   (check backend controller and repository)
+3. Is the filter parameter actually being sent to 
+   the backend, or is it filtering client-side?
+4. What are the exact filter values? 
+   (My View / My Team / My Department / other?)
+
+TASK 2 — CLEANUP the page (make changes):
+Without changing any functionality, make the page 
+cleaner and more structured:
+
+- Progress Status table:
+  Use bg-[#1F3864] text-white for the header row 
+  matching the brand pattern
+  Rows: clean alternating or white with slate borders
+  Numbers right-aligned
+  Selected/active row: highlighted
+
+- Review table (Draft Completed etc.):
+  Header: bg-[#1F3864] text-white
+  Rows: clean white with subtle borders
+  Borrower Name: slate-800 font-medium
+  All other cells: text-slate-600 text-sm
+  PDF icon: keep existing, ensure proper alignment
+
+- Overall layout:
+  Consistent spacing using space-y-4
+  Both panels same height/alignment
+  Clean card wrappers: bg-white border 
+  border-slate-200 rounded
+
+- Select Sample and My View dropdowns:
+  Use existing Select component if not already
+  Consistent sizing and spacing
+  Labels: text-xs text-slate-600 mb-1
+
+Report Task 1 findings first in the output, 
+then show Task 2 changes.
+No backend files. No new packages.
