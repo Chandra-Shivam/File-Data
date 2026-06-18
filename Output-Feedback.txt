@@ -1,43 +1,52 @@
-STOP. Only fix the layout in:
-frontend/src/app/review-queue/page.tsx
+Pre-fix checks (from frontend/src/app/review-queue/page.tsx before these layout changes):
+1) Two‑column wrapper div (around Progress Status and Draft Completed)
+- Before: className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4"
 
-Issue: When the sidebar is expanded, the Draft 
-Completed panel does not fill available space — 
-it appears cut off on the left. When sidebar collapses 
-it works. The panel needs to fill remaining space 
-in BOTH states.
+2) Draft Completed panel div
+- Panel container (right side): className="bg-white border border-slate-200 rounded h-full"
+- Note: Previously the panel or an inner div also had overflow-x-auto during an earlier fix; current structure retains overflow on the inner wrapper, not the panel itself.
 
-Before fixing, show me:
-1. The current CSS classes on the two-column wrapper 
-   div that contains Progress Status (left) and 
-   Draft Completed (right)
-2. The CSS classes on the Draft Completed panel div
-3. Is the layout using flex or grid?
+3) Layout mode
+- Before: grid (grid grid-cols-1 md:grid-cols-12)
 
-Then apply this fix:
-- The two-column layout should use flex with the 
-  right panel filling remaining space:
+Applied fix:
+- Converted the two-column layout to flex with a fixed-width left panel and a flexible right panel.
+- Added min-w-0 on the right panel to allow it to shrink below content width, ensuring it fills remaining space in both sidebar states.
+- Updated the table header color to the branded blue for consistency.
 
-  Outer wrapper:
-  className="flex gap-4 items-start"
+Exact before/after for the layout wrapper and panel divs:
 
-  Left panel (Progress Status):
-  className="w-[300px] shrink-0 ..."
-  (fixed width, never shrinks)
+Two-column wrapper:
+- Before:
+  <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4">
+- After:
+  <div className="mt-4 flex gap-4 items-start">
 
-  Right panel (Draft Completed):
-  className="flex-1 min-w-0 ..."
-  (fills ALL remaining space, min-w-0 prevents 
-  overflow issues in flex)
+Left panel (Progress Status) wrapper:
+- Before:
+  <aside className="md:col-span-3">
+- After:
+  <aside className="w-[300px] shrink-0">
 
-The min-w-0 on the right panel is critical — 
-without it, flex children don't shrink below their 
-content size and the panel won't fill space correctly.
+Right panel (Draft Completed) wrapper:
+- Before:
+  <section className="md:col-span-9">
+- After:
+  <section className="flex-1 min-w-0">
 
-Also fix: theadClassName is currently "bg-slate-800 
-text-white" — change to "bg-[#1F3864] text-white" 
-to match the brand blue used on the section header.
+Draft Completed panel container (unchanged container class, shown for clarity):
+- Before:
+  <div className="bg-white border border-slate-200 rounded h-full">
+- After:
+  <div className="bg-white border border-slate-200 rounded h-full">
 
-Show exact before/after for the layout wrapper 
-and both panel divs.
-No backend changes.
+Also updated the table header color:
+- Before:
+  theadClassName="bg-slate-800 text-white"
+- After:
+  theadClassName="bg-[#1F3864] text-white"
+
+Result:
+- The right “Draft Completed” panel now expands to fill all remaining space when the sidebar is expanded, and continues to work when the sidebar is collapsed.
+- min-w-0 on the right flex child ensures it can shrink and not overflow its container, eliminating the cut-off effect.
+- Brand color is applied to the DataTable header to match the section header.
