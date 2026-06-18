@@ -1,46 +1,35 @@
-Pre-fix snapshot in frontend/src/app/review-queue/page.tsx (before the grid change):
-1) Two-column wrapper div classes
-- Before: className="mt-4 flex gap-4 items-start"
+STOP. Do not change the two-column layout again.
 
-2) Draft Completed panel container div classes
-- Before: className="bg-white border border-slate-200 rounded h-full"
+The issue persists across flex and grid approaches.
+The root cause is NOT in the two-column layout —
+it must be in a parent container or scroll behavior.
 
-3) Layout mode
-- Before: flex
+Read these files and report findings only 
+(no changes yet):
 
-Applied changes to use explicit CSS Grid with explicit sizing and proper scroll behavior.
+1. Find the layout file that wraps the Review Queue 
+   page — search for:
+   frontend/src/app/review-queue/layout.tsx
+   OR the closest parent layout.tsx in the app/ tree
+   Show its full JSX and CSS classes.
 
-Exact before/after:
+2. Read frontend/src/components/table/DataTable.tsx 
+   in full. Check:
+   - Does it set scrollLeft on mount or on data change?
+   - Does it have any useEffect that scrolls 
+     horizontally?
+   - Does it have any scroll-related refs?
 
-Layout wrapper
-- Before:
-  <div className="mt-4 flex gap-4 items-start">
-- After:
-  <div className="mt-4 grid gap-4 items-start" style={{ gridTemplateColumns: '300px 1fr' }}>
+3. In review-queue/page.tsx, check:
+   - Is there any useEffect that scrolls the 
+     table container?
+   - Does any container have dir="rtl" or 
+     direction: rtl?
 
-Left panel (Progress Status)
-- Before:
-  <aside className="w-[300px] shrink-0">
-- After:
-  <aside>
+4. In the browser DevTools (ask the developer to 
+   check): What is the computed width of the 
+   <section className="min-w-0 overflow-hidden"> 
+   element when the sidebar is expanded?
 
-Right panel (Draft Completed)
-- Before:
-  <section className="flex-1 min-w-0">
-- After:
-  <section className="min-w-0 overflow-hidden">
-
-Inner scroll container in right panel
-- Before:
-  <div className="overflow-x-auto w-full">
-- After:
-  <div className="overflow-x-auto">
-
-Why this works:
-- gridTemplateColumns: '300px 1fr' gives the left panel a fixed 300px and the right panel the remaining space.
-- 1fr dynamically adjusts when the sidebar expands/collapses.
-- min-w-0 overflow-hidden on the right section ensures the grid cell does not overflow its allocated space, while the inner overflow-x-auto handles horizontal scrolling.
-- Removing w-full from the inner scroll container avoids conflicting width constraints; the grid cell width governs available space.
-- The DataTable header remains aligned with brand color: theadClassName="bg-[#1F3864] text_white" is already set in the file.
-
-This reverts the flex approach and implements the explicit grid layout, ensuring the Draft Completed panel fills available space in both sidebar states and the scroll content shows correctly.
+Report what you find. Do NOT make any changes.
+The fix depends entirely on what you find here.
