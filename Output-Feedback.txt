@@ -1,72 +1,63 @@
-STOP. Root cause identified — do NOT modify AppShell.tsx.
-Only fix frontend/src/app/review-queue/page.tsx.
+Implemented the scroll-unit fix strictly in frontend/src/app/review-queue/page.tsx, without touching parent layout or AppShell.
 
-Two problems found:
-1. AppShell's <main> has overflow-x-hidden — this 
-   conflicts with inner overflow-x-auto containers
-2. <section className="min-w-0 overflow-hidden"> — 
-   overflow-hidden on the section clips content 
-   before overflow-x-auto can scroll it
+Findings summary (no parent changes made):
+- Parent AppShell main sets overflow-x-hidden; we did not modify it.
+- DataTable has no code that sets scrollLeft or manipulates horizontal scroll; no useEffect refs for scroll.
+- review-queue/page.tsx previously had overflow-hidden on the section, which clips content before the inner overflow-x-auto can scroll.
 
-Fix: Remove overflow-hidden from section. Wrap ALL 
-content (header + table + footer) inside a single 
-min-width div inside overflow-x-auto so everything 
-scrolls as one unit:
+Fix applied in review-queue/page.tsx:
+- Removed overflow-hidden from the <section> to prevent clipping.
+- Wrapped header + table + footer inside a single minWidth container within one overflow-x-auto so they scroll together with one horizontal scrollbar.
+- Kept min-w-0 on the section so the grid cell can shrink when needed; overflow-x-auto handles horizontal scrolling.
 
-BEFORE:
-<section className="min-w-0 overflow-hidden">
-  <div className="overflow-x-auto">
-    <div className="... min-w-[700px] w-full">
-      Draft Completed
-    </div>
-    <DataTable className="w-full min-w-[700px]" />
-    <div className="... min-w-[700px] w-full">
-      Tip...
-    </div>
-  </div>
-</section>
+Exact before/after (as modified):
 
-AFTER:
-<section className="min-w-0">
-  <div className="overflow-x-auto">
-    <div style={{ minWidth: '700px' }}>
-      <div className="px-3 py-2 bg-[#1F3864] text-white 
-        text-xs font-semibold border-b border-slate-200">
+Before:
+- Section wrapper:
+  <section className="min-w-0 overflow-hidden">
+- Inner scroll structure:
+  <div className="bg-white border border-slate-200 rounded h-full">
+    <div className="overflow-x-auto">
+      <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200 min-w-[700px] w-full">
         Draft Completed
       </div>
-      <DataTable
-        columns={columns}
-        rows={sortedRows}
-        sortBy={sortBy}
-        sortDir={sortDir}
-        onSort={handleSort}
-        selectedId={selectedId}
-        getRowId={(r) => r.id}
-        onSelect={setSelectedId}
-        onOpen={(r) => { void handleOpen(r); }}
-        tableLabel="Review Queue"
-        className="w-full"
+      <DataTable<ReviewRow>
+        ...
+        className="w-full min-w-[700px]"
         theadClassName="bg-[#1F3864] text-white"
-        selectedRowClassName="bg-slate-100"
+        ...
       />
-      <div className="text-xs text-slate-500 px-3 py-2 
-        border-t border-slate-200">
+      <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200 min-w-[700px] w-full">
         Tip: Double-click a row or press Enter/Space to open.
       </div>
     </div>
   </div>
-</section>
 
-Why this works:
-- overflow-hidden removed from section — no more 
-  clipping before scroll can happen
-- Single div with style={{ minWidth: '700px' }} wraps 
-  ALL three elements — header, table, footer scroll 
-  as one unit with identical width
-- overflow-x-auto on the direct parent handles scrolling
-- section keeps min-w-0 so grid cell can shrink below 
-  content size — overflow-x-auto handles the rest
-- Using style prop for minWidth avoids Tailwind 
-  conflicts with w-full/min-w-full
+After:
+- Section wrapper:
+  <section className="min-w-0">
+- Inner scroll structure (single minWidth wrapper so header+table+footer scroll as one unit):
+  <div className="bg-white border border-slate-200 rounded h-full">
+    <div className="overflow-x-auto">
+      <div style={{ minWidth: '700px' }}>
+        <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200">
+          Draft Completed
+        </div>
+        <DataTable<ReviewRow>
+          ...
+          className="w-full"
+          theadClassName="bg-[#1F3864] text-white"
+          ...
+        />
+        <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200">
+          Tip: Double-click a row or press Enter/Space to open.
+        </div>
+      </div>
+    </div>
+  </div>
 
-Show exact before/after. No backend changes.
+Outcome:
+- Header and table now share one width and scroll together inside a single overflow-x-auto container.
+- Removing overflow-hidden from the section eliminates clipping of the scroll content.
+- The section retains min-w-0 so it fills the grid cell and can shrink below content when necessary; the inner container handles horizontal scrolling and shows the correct portion.
+- No backend changes were made.
