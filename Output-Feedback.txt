@@ -1,52 +1,41 @@
-Pre-fix checks (from frontend/src/app/review-queue/page.tsx before these layout changes):
-1) Two‑column wrapper div (around Progress Status and Draft Completed)
-- Before: className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4"
+STOP. The flex approach is not working — the scroll 
+content is showing the wrong portion.
 
-2) Draft Completed panel div
-- Panel container (right side): className="bg-white border border-slate-200 rounded h-full"
-- Note: Previously the panel or an inner div also had overflow-x-auto during an earlier fix; current structure retains overflow on the inner wrapper, not the panel itself.
+Revert the two-column layout change and use CSS Grid 
+with explicit sizing instead of flex.
 
-3) Layout mode
-- Before: grid (grid grid-cols-1 md:grid-cols-12)
+Only modify frontend/src/app/review-queue/page.tsx
 
-Applied fix:
-- Converted the two-column layout to flex with a fixed-width left panel and a flexible right panel.
-- Added min-w-0 on the right panel to allow it to shrink below content width, ensuring it fills remaining space in both sidebar states.
-- Updated the table header color to the branded blue for consistency.
+REVERT AND REPLACE the layout wrapper:
 
-Exact before/after for the layout wrapper and panel divs:
-
-Two-column wrapper:
-- Before:
-  <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-4">
-- After:
-  <div className="mt-4 flex gap-4 items-start">
-
-Left panel (Progress Status) wrapper:
-- Before:
-  <aside className="md:col-span-3">
-- After:
+BEFORE (current flex approach — not working):
+<div className="mt-4 flex gap-4 items-start">
   <aside className="w-[300px] shrink-0">
-
-Right panel (Draft Completed) wrapper:
-- Before:
-  <section className="md:col-span-9">
-- After:
   <section className="flex-1 min-w-0">
 
-Draft Completed panel container (unchanged container class, shown for clarity):
-- Before:
-  <div className="bg-white border border-slate-200 rounded h-full">
-- After:
-  <div className="bg-white border border-slate-200 rounded h-full">
+AFTER (use explicit CSS Grid instead):
+<div className="mt-4 grid gap-4 items-start" 
+  style={{ gridTemplateColumns: '300px 1fr' }}>
+  <aside>
+  <section className="min-w-0 overflow-hidden">
 
-Also updated the table header color:
-- Before:
-  theadClassName="bg-slate-800 text-white"
-- After:
-  theadClassName="bg-[#1F3864] text-white"
+Why this works:
+- grid-template-columns: 300px 1fr explicitly gives 
+  the left panel 300px and the right panel ALL 
+  remaining space (1fr)
+- 1fr is dynamic — it recalculates whenever the 
+  sidebar expands or collapses
+- min-w-0 overflow-hidden on the right section 
+  prevents the grid cell from overflowing its 
+  allocated 1fr space
+- This approach does not conflict with the inner 
+  overflow-x-auto scroll container
 
-Result:
-- The right “Draft Completed” panel now expands to fill all remaining space when the sidebar is expanded, and continues to work when the sidebar is collapsed.
-- min-w-0 on the right flex child ensures it can shrink and not overflow its container, eliminating the cut-off effect.
-- Brand color is applied to the DataTable header to match the section header.
+Also ensure the inner scroll container on the 
+right panel uses:
+<div className="overflow-x-auto">
+  (no w-full needed — the grid cell already 
+  determines the width)
+
+Show exact before/after.
+No backend changes.
