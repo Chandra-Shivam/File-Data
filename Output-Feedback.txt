@@ -1,71 +1,55 @@
-Analysis of DataTable and header placement:
-1) How DataTable renders its section header:
-- DataTable (frontend/src/components/table/DataTable.tsx) renders only a table element: a table with thead for column headers and tbody for rows. It does not include any “section header” bar like “Draft Completed.” That top bar is provided by the page component, not by DataTable.
+STOP. Only fix the layout in:
+frontend/src/app/review-queue/page.tsx
 
-2) Is the header inside or outside the overflow-x-auto div:
-- Before this fix, the “Draft Completed” section header in frontend/src/app/review-queue/page.tsx sat above the DataTable and was not given a min-width tied to the table. When the table grew wider than the viewport and scrolled, the header bar stayed at the container width and did not span the table’s full width.
+Issue: The inline-block min-w-max wrapper from the 
+previous fix prevents the panel from expanding to 
+fill available space when the sidebar collapses.
 
-Chosen fix path:
-- Option B is not applicable (DataTable has no prop to control an outer scroll wrapper for a section header).
-- Implemented Option C: Wrapped the entire header + DataTable + footer tip together in a single overflow-x-auto container and ensured the header bar spans the table width via min-w-full, with an inline-block min-w-max wrapper so the header expands to match the table’s width. This guarantees header and table scroll together with a single horizontal scrollbar.
+Root cause: inline-block min-w-max shrinks to content 
+width and never grows, so it ignores available space.
 
-Exact before/after changes in frontend/src/app/review-queue/page.tsx:
+Fix: Remove the inline-block min-w-max wrapper entirely.
+Use min-width on the header and table instead — 
+they scroll when viewport is too narrow but expand 
+to fill all available space when there is room.
 
-Before:
-              <div className="bg-white border border-slate-200 rounded overflow-x-auto h-full">
-                <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200">
-                  Draft Completed
-                </div>
-              <DataTable<ReviewRow>
-                columns={columns}
-                rows={sortedRows}
-                sortBy={sortBy}
-                sortDir={sortDir}
-                onSort={handleSort}
-                selectedId={selectedId}
-                getRowId={(r) => r.id}
-                onSelect={setSelectedId}
-                onOpen={(r) => { void handleOpen(r); }}
-                tableLabel="Review Queue"
-                className="w-full"
-                theadClassName="bg-slate-800 text-white"
-                selectedRowClassName="bg-slate-100"
-              />
-              <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200">
-                Tip: Double-click a row or press Enter/Space to open.
-              </div>
-              </div>
+BEFORE:
+<div className="bg-white border border-slate-200 rounded h-full">
+  <div className="overflow-x-auto">
+    <div className="inline-block min-w-max align-top">
+      <div className="px-3 py-2 bg-[#1F3864] ... min-w-full">
+        Draft Completed
+      </div>
+      <DataTable ... className="w-full" />
+      <div className="... min-w-full">Tip: ...</div>
+    </div>
+  </div>
+</div>
 
-After:
-              <div className="bg-white border border-slate-200 rounded h-full">
-                <div className="overflow-x-auto">
-                  <div className="inline-block min-w-max align-top">
-                    <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200 min-w-full">
-                      Draft Completed
-                    </div>
-                    <DataTable<ReviewRow>
-                      columns={columns}
-                      rows={sortedRows}
-                      sortBy={sortBy}
-                      sortDir={sortDir}
-                      onSort={handleSort}
-                      selectedId={selectedId}
-                      getRowId={(r) => r.id}
-                      onSelect={setSelectedId}
-                      onOpen={(r) => { void handleOpen(r); }}
-                      tableLabel="Review Queue"
-                      className="w-full"
-                      theadClassName="bg-slate-800 text-white"
-                      selectedRowClassName="bg-slate-100"
-                    />
-                    <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200 min-w-full">
-                      Tip: Double-click a row or press Enter/Space to open.
-                    </div>
-                  </div>
-                </div>
-              </div>
+AFTER:
+<div className="bg-white border border-slate-200 rounded h-full">
+  <div className="overflow-x-auto w-full">
+    <div className="px-3 py-2 bg-[#1F3864] text-white 
+      text-xs font-semibold border-b border-slate-200 
+      min-w-[700px] w-full">
+      Draft Completed
+    </div>
+    <DataTable ... className="w-full min-w-[700px]" />
+    <div className="text-xs text-slate-500 px-3 py-2 
+      border-t border-slate-200 min-w-[700px] w-full">
+      Tip: Double-click a row or press Enter/Space to open.
+    </div>
+  </div>
+</div>
 
-Result:
-- The “Draft Completed” section header and the table content now scroll horizontally together within a single scroll container.
-- The header bar uses min-w-full inside an inline-block min-w-max wrapper so it always spans the full width of the table content.
-- Only one horizontal scrollbar appears for the whole panel, ensuring a consistent scrolling experience on smaller screens.
+Why this works:
+- w-full makes the container fill all available space 
+  when the sidebar expands or collapses
+- min-w-[700px] ensures table never collapses below 
+  a usable minimum width
+- When viewport < 700px: overflow-x-auto scrolls
+- When viewport > 700px: everything expands to fill space
+- Header and table always have the same min-width so 
+  they always scroll together perfectly
+
+No backend changes. Show exact before/after.
