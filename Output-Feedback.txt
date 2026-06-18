@@ -1,63 +1,40 @@
-Implemented the scroll-unit fix strictly in frontend/src/app/review-queue/page.tsx, without touching parent layout or AppShell.
+STOP. Change approach entirely.
 
-Findings summary (no parent changes made):
-- Parent AppShell main sets overflow-x-hidden; we did not modify it.
-- DataTable has no code that sets scrollLeft or manipulates horizontal scroll; no useEffect refs for scroll.
-- review-queue/page.tsx previously had overflow-hidden on the section, which clips content before the inner overflow-x-auto can scroll.
+The overflow-x-hidden on AppShell's main element 
+cannot be overridden without modifying AppShell.
+We will avoid the conflict by making the table 
+fit without horizontal scroll on smaller screens.
 
-Fix applied in review-queue/page.tsx:
-- Removed overflow-hidden from the <section> to prevent clipping.
-- Wrapped header + table + footer inside a single minWidth container within one overflow-x-auto so they scroll together with one horizontal scrollbar.
-- Kept min-w-0 on the section so the grid cell can shrink when needed; overflow-x-auto handles horizontal scrolling.
+Only modify frontend/src/app/review-queue/page.tsx
 
-Exact before/after (as modified):
+FIX — Hide secondary columns on laptop screens:
 
-Before:
-- Section wrapper:
-  <section className="min-w-0 overflow-hidden">
-- Inner scroll structure:
-  <div className="bg-white border border-slate-200 rounded h-full">
-    <div className="overflow-x-auto">
-      <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200 min-w-[700px] w-full">
-        Draft Completed
-      </div>
-      <DataTable<ReviewRow>
-        ...
-        className="w-full min-w-[700px]"
-        theadClassName="bg-[#1F3864] text-white"
-        ...
-      />
-      <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200 min-w-[700px] w-full">
-        Tip: Double-click a row or press Enter/Space to open.
-      </div>
-    </div>
-  </div>
+In the columns array, add responsive hiding to 
+Bank PD and CAS PD columns. These are secondary 
+numeric columns that can be hidden on smaller 
+screens per UI-PATTERNS.md.
 
-After:
-- Section wrapper:
-  <section className="min-w-0">
-- Inner scroll structure (single minWidth wrapper so header+table+footer scroll as one unit):
-  <div className="bg-white border border-slate-200 rounded h-full">
-    <div className="overflow-x-auto">
-      <div style={{ minWidth: '700px' }}>
-        <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200">
-          Draft Completed
-        </div>
-        <DataTable<ReviewRow>
-          ...
-          className="w-full"
-          theadClassName="bg-[#1F3864] text-white"
-          ...
-        />
-        <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200">
-          Tip: Double-click a row or press Enter/Space to open.
-        </div>
-      </div>
-    </div>
-  </div>
+For Bank PD column header and cell — add hidden 
+class for smaller screens:
+  header className: "hidden xl:table-cell"
+  cell className: "hidden xl:table-cell"
 
-Outcome:
-- Header and table now share one width and scroll together inside a single overflow-x-auto container.
-- Removing overflow-hidden from the section eliminates clipping of the scroll content.
-- The section retains min-w-0 so it fills the grid cell and can shrink below content when necessary; the inner container handles horizontal scrolling and shows the correct portion.
-- No backend changes were made.
+For CAS PD column header and cell — same:
+  header className: "hidden xl:table-cell"  
+  cell className: "hidden xl:table-cell"
+
+Also remove all min-w-[700px] and minWidth style 
+constraints from the scroll container — they are 
+no longer needed since the table will fit on laptop 
+screens without horizontal scroll.
+
+The table width without Bank PD and CAS PD will be 
+approximately 750px which fits comfortably in the 
+available right panel space on a laptop with the 
+sidebar expanded.
+
+On xl screens (1280px+) all columns show. On 
+smaller screens Bank PD and CAS PD are hidden.
+
+Show exact before/after for the columns array.
+No backend changes.
