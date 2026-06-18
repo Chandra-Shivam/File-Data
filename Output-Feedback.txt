@@ -1,35 +1,65 @@
-STOP. Do not change the two-column layout again.
+Findings so far (no changes made):
 
-The issue persists across flex and grid approaches.
-The root cause is NOT in the two-column layout —
-it must be in a parent container or scroll behavior.
+1) Parent layout wrapping Review Queue
+- File: frontend/src/app/layout.tsx (full JSX)
+  import "./globals.css";
+  import AppShell from "@/components/AppShell";
+  import MsalRoot from "@/auth/MsalRoot";
+  import { getServerRuntimeConfig } from "@/lib/runtimeConfig";
+  import Script from "next/script";
+  
+  export const metadata = {
+    title: "CASRR – Credit Assurance Risk Review System",
+    description: "Commercial property analysis tool"
+  };
+  
+  export const dynamic = "force-dynamic";
+  export const revalidate = 0;
+  
+  export default function RootLayout({ children }: { children: React.ReactNode }) {
+    const cfg = getServerRuntimeConfig();
+    const cfgJson = JSON.stringify(cfg).replace(/</g, "\\u003c");
+  
+    return (
+      <html lang="en">
+        <body>
+          <Script id="runtime-config" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: `window.__RUNTIME_CONFIG__=${cfgJson};` }} />
+          <MsalRoot>
+            <AppShell>{children}</AppShell>
+          </MsalRoot>
+        </body>
+      </html>
+    );
+  }
 
-Read these files and report findings only 
-(no changes yet):
+- AppShell (frontend/src/components/AppShell.tsx) key layout classes:
+  • Root: className="h-screen flex flex-col"
+  • Main row: className="flex flex-1 min-h-0"
+    - Sidebar component followed by:
+    - <main className="flex-1 min-w-0 min-h-0 overflow-x-hidden overflow-y-auto scrollbar-default scrollbar-gutter-stable p-4 md:p-6 pb-16">
+        <div className="mx-auto w-full min-h-0 flex flex-col flex-1">{children}</div>
+      </main>
+  • Note: main sets overflow-x-hidden and puts the vertical scrolling on main.
 
-1. Find the layout file that wraps the Review Queue 
-   page — search for:
-   frontend/src/app/review-queue/layout.tsx
-   OR the closest parent layout.tsx in the app/ tree
-   Show its full JSX and CSS classes.
+2) DataTable (frontend/src/components/table/DataTable.tsx)
+- No useEffect hooks, no scrollLeft manipulation, no scroll-related refs.
+- Horizontal behavior: the table element uses class "min-w-full" (min width equals container width). Sticky thead is used but only with top: 0; no horizontal positioning code.
 
-2. Read frontend/src/components/table/DataTable.tsx 
-   in full. Check:
-   - Does it set scrollLeft on mount or on data change?
-   - Does it have any useEffect that scrolls 
-     horizontally?
-   - Does it have any scroll-related refs?
+3) review-queue/page.tsx
+- useEffect hooks only load data; none adjust scroll positions.
+- No dir="rtl" or direction: rtl on any container.
+- Horizontal scroll container on the right panel is:
+  <div className="overflow-x-auto"> containing:
+    - Header div (min-w-[700px] w-full)
+    - DataTable (className="w-full min-w-[700px]")
+    - Footer tip (min-w-[700px] w-full)
 
-3. In review-queue/page.tsx, check:
-   - Is there any useEffect that scrolls the 
-     table container?
-   - Does any container have dir="rtl" or 
-     direction: rtl?
+4) DevTools measurement required to proceed:
+Please open DevTools and provide the following values with the sidebar expanded:
+- Computed width (px) of the element: <section class="min-w-0 overflow-hidden"> (the right panel).
+- Computed width (px) of the inner <div class="overflow-x-auto"> container inside that section.
+- For the overflow-x-auto element, report:
+  • clientWidth and scrollWidth (run in console: select the element, then $0.clientWidth and $0.scrollWidth)
+- Optionally, also provide the computed width of the <main class="flex-1 min-w-0 min-h-0 overflow-x-hidden ..."> element.
 
-4. In the browser DevTools (ask the developer to 
-   check): What is the computed width of the 
-   <section className="min-w-0 overflow-hidden"> 
-   element when the sidebar is expanded?
-
-Report what you find. Do NOT make any changes.
-The fix depends entirely on what you find here.
+Then repeat the same four numbers with the sidebar collapsed. These measurements will pinpoint whether an ancestor width or overflow-x-hidden is clipping or offsetting the horizontal scroll area so we can determine the precise fix.
