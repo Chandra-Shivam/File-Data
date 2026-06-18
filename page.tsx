@@ -349,7 +349,7 @@ export default function ReviewQueuePage() {
           </div>
 
           {/* Content area */}
-          <div className="mt-4 grid gap-4 items-start" style={{ gridTemplateColumns: '300px 1fr' }}>
+          <div className="mt-4 grid gap-4 items-start" style={{ gridTemplateColumns: '300px minmax(0, 1fr)' }}>
             {/* Left: Progress Status */}
             <aside>
               <div className="rounded border border-slate-200 overflow-hidden">
@@ -377,31 +377,29 @@ export default function ReviewQueuePage() {
 
             {/* Right: Queue table */}
             <section className="min-w-0">
-              <div className="bg-white border border-slate-200 rounded h-full">
+              <div className="bg-white border border-slate-200 rounded h-full overflow-hidden">
+                <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200">
+                  Draft Completed
+                </div>
                 <div className="overflow-x-auto">
-                  <div>
-                    <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200">
-                      Draft Completed
-                    </div>
-                    <DataTable<ReviewRow>
-                      columns={columns}
-                      rows={sortedRows}
-                      sortBy={sortBy}
-                      sortDir={sortDir}
-                      onSort={handleSort}
-                      selectedId={selectedId}
-                      getRowId={(r) => r.id}
-                      onSelect={setSelectedId}
-                      onOpen={(r) => { void handleOpen(r); }}
-                      tableLabel="Review Queue"
-                      className="w-full"
-                      theadClassName="bg-[#1F3864] text-white"
-                      selectedRowClassName="bg-slate-100"
-                    />
-                    <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200">
-                      Tip: Double-click a row or press Enter/Space to open.
-                    </div>
-                  </div>
+                  <DataTable<ReviewRow>
+                    columns={columns}
+                    rows={sortedRows}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    selectedId={selectedId}
+                    getRowId={(r) => r.id}
+                    onSelect={setSelectedId}
+                    onOpen={(r) => { void handleOpen(r); }}
+                    tableLabel="Review Queue"
+                    className="w-full"
+                    theadClassName="bg-[#1F3864] text-white"
+                    selectedRowClassName="bg-slate-100"
+                  />
+                </div>
+                <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200">
+                  Tip: Double-click a row or press Enter/Space to open.
                 </div>
               </div>
               {pdfRow && (
