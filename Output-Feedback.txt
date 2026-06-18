@@ -1,65 +1,72 @@
-Findings so far (no changes made):
+STOP. Root cause identified — do NOT modify AppShell.tsx.
+Only fix frontend/src/app/review-queue/page.tsx.
 
-1) Parent layout wrapping Review Queue
-- File: frontend/src/app/layout.tsx (full JSX)
-  import "./globals.css";
-  import AppShell from "@/components/AppShell";
-  import MsalRoot from "@/auth/MsalRoot";
-  import { getServerRuntimeConfig } from "@/lib/runtimeConfig";
-  import Script from "next/script";
-  
-  export const metadata = {
-    title: "CASRR – Credit Assurance Risk Review System",
-    description: "Commercial property analysis tool"
-  };
-  
-  export const dynamic = "force-dynamic";
-  export const revalidate = 0;
-  
-  export default function RootLayout({ children }: { children: React.ReactNode }) {
-    const cfg = getServerRuntimeConfig();
-    const cfgJson = JSON.stringify(cfg).replace(/</g, "\\u003c");
-  
-    return (
-      <html lang="en">
-        <body>
-          <Script id="runtime-config" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: `window.__RUNTIME_CONFIG__=${cfgJson};` }} />
-          <MsalRoot>
-            <AppShell>{children}</AppShell>
-          </MsalRoot>
-        </body>
-      </html>
-    );
-  }
+Two problems found:
+1. AppShell's <main> has overflow-x-hidden — this 
+   conflicts with inner overflow-x-auto containers
+2. <section className="min-w-0 overflow-hidden"> — 
+   overflow-hidden on the section clips content 
+   before overflow-x-auto can scroll it
 
-- AppShell (frontend/src/components/AppShell.tsx) key layout classes:
-  • Root: className="h-screen flex flex-col"
-  • Main row: className="flex flex-1 min-h-0"
-    - Sidebar component followed by:
-    - <main className="flex-1 min-w-0 min-h-0 overflow-x-hidden overflow-y-auto scrollbar-default scrollbar-gutter-stable p-4 md:p-6 pb-16">
-        <div className="mx-auto w-full min-h-0 flex flex-col flex-1">{children}</div>
-      </main>
-  • Note: main sets overflow-x-hidden and puts the vertical scrolling on main.
+Fix: Remove overflow-hidden from section. Wrap ALL 
+content (header + table + footer) inside a single 
+min-width div inside overflow-x-auto so everything 
+scrolls as one unit:
 
-2) DataTable (frontend/src/components/table/DataTable.tsx)
-- No useEffect hooks, no scrollLeft manipulation, no scroll-related refs.
-- Horizontal behavior: the table element uses class "min-w-full" (min width equals container width). Sticky thead is used but only with top: 0; no horizontal positioning code.
+BEFORE:
+<section className="min-w-0 overflow-hidden">
+  <div className="overflow-x-auto">
+    <div className="... min-w-[700px] w-full">
+      Draft Completed
+    </div>
+    <DataTable className="w-full min-w-[700px]" />
+    <div className="... min-w-[700px] w-full">
+      Tip...
+    </div>
+  </div>
+</section>
 
-3) review-queue/page.tsx
-- useEffect hooks only load data; none adjust scroll positions.
-- No dir="rtl" or direction: rtl on any container.
-- Horizontal scroll container on the right panel is:
-  <div className="overflow-x-auto"> containing:
-    - Header div (min-w-[700px] w-full)
-    - DataTable (className="w-full min-w-[700px]")
-    - Footer tip (min-w-[700px] w-full)
+AFTER:
+<section className="min-w-0">
+  <div className="overflow-x-auto">
+    <div style={{ minWidth: '700px' }}>
+      <div className="px-3 py-2 bg-[#1F3864] text-white 
+        text-xs font-semibold border-b border-slate-200">
+        Draft Completed
+      </div>
+      <DataTable
+        columns={columns}
+        rows={sortedRows}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSort={handleSort}
+        selectedId={selectedId}
+        getRowId={(r) => r.id}
+        onSelect={setSelectedId}
+        onOpen={(r) => { void handleOpen(r); }}
+        tableLabel="Review Queue"
+        className="w-full"
+        theadClassName="bg-[#1F3864] text-white"
+        selectedRowClassName="bg-slate-100"
+      />
+      <div className="text-xs text-slate-500 px-3 py-2 
+        border-t border-slate-200">
+        Tip: Double-click a row or press Enter/Space to open.
+      </div>
+    </div>
+  </div>
+</section>
 
-4) DevTools measurement required to proceed:
-Please open DevTools and provide the following values with the sidebar expanded:
-- Computed width (px) of the element: <section class="min-w-0 overflow-hidden"> (the right panel).
-- Computed width (px) of the inner <div class="overflow-x-auto"> container inside that section.
-- For the overflow-x-auto element, report:
-  • clientWidth and scrollWidth (run in console: select the element, then $0.clientWidth and $0.scrollWidth)
-- Optionally, also provide the computed width of the <main class="flex-1 min-w-0 min-h-0 overflow-x-hidden ..."> element.
+Why this works:
+- overflow-hidden removed from section — no more 
+  clipping before scroll can happen
+- Single div with style={{ minWidth: '700px' }} wraps 
+  ALL three elements — header, table, footer scroll 
+  as one unit with identical width
+- overflow-x-auto on the direct parent handles scrolling
+- section keeps min-w-0 so grid cell can shrink below 
+  content size — overflow-x-auto handles the rest
+- Using style prop for minWidth avoids Tailwind 
+  conflicts with w-full/min-w-full
 
-Then repeat the same four numbers with the sidebar collapsed. These measurements will pinpoint whether an ancestor width or overflow-x-hidden is clipping or offsetting the horizontal scroll area so we can determine the precise fix.
+Show exact before/after. No backend changes.
