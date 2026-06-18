@@ -1,40 +1,60 @@
-STOP. Change approach entirely.
+Implemented the responsive column-hiding approach in frontend/src/app/review-queue/page.tsx to avoid horizontal scrolling on laptop screens while leaving AppShell unchanged.
 
-The overflow-x-hidden on AppShell's main element 
-cannot be overridden without modifying AppShell.
-We will avoid the conflict by making the table 
-fit without horizontal scroll on smaller screens.
+Changes applied:
 
-Only modify frontend/src/app/review-queue/page.tsx
+1) Columns array — add responsive hiding for Bank PD and CAS PD
+- Before:
+  { key: "bankPd", header: "Bank PD", sortable: true, width: 80, className: "text-right", cellClassName: "text-right tabular-nums text-slate-600 text-sm" },
+  { key: "casPd", header: "CAS PD", sortable: true, width: 80, className: "text-right", cellClassName: "text-right tabular-nums text-slate-600 text-sm" },
 
-FIX — Hide secondary columns on laptop screens:
+- After:
+  { key: "bankPd", header: "Bank PD", sortable: true, width: 80, className: "hidden xl:table-cell text-right", cellClassName: "hidden xl:table-cell text-right tabular-nums text-slate-600 text-sm" },
+  { key: "casPd", header: "CAS PD", sortable: true, width: 80, className: "hidden xl:table-cell text-right", cellClassName: "hidden xl:table-cell text-right tabular-nums text-slate-600 text-sm" },
 
-In the columns array, add responsive hiding to 
-Bank PD and CAS PD columns. These are secondary 
-numeric columns that can be hidden on smaller 
-screens per UI-PATTERNS.md.
+Effect:
+- On screens smaller than xl (1280px), Bank PD and CAS PD are hidden to reduce table width, preventing overflow/clipping under AppShell’s overflow-x-hidden.
+- On xl and larger screens, all columns are shown.
 
-For Bank PD column header and cell — add hidden 
-class for smaller screens:
-  header className: "hidden xl:table-cell"
-  cell className: "hidden xl:table-cell"
+2) Remove min-width constraints from the scroll container
+- Before (right panel, inner wrapper):
+  <div style={{ minWidth: '700px' }}>
+- After:
+  <div>
 
-For CAS PD column header and cell — same:
-  header className: "hidden xl:table-cell"  
-  cell className: "hidden xl:table-cell"
+- The header/footer and DataTable previously had min-width constraints; these have been removed so the table can fit without horizontal scroll on laptop screens.
 
-Also remove all min-w-[700px] and minWidth style 
-constraints from the scroll container — they are 
-no longer needed since the table will fit on laptop 
-screens without horizontal scroll.
+Current right panel structure (for reference):
+<section className="min-w-0">
+  <div className="bg-white border border-slate-200 rounded h-full">
+    <div className="overflow-x-auto">
+      <div>
+        <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200">
+          Draft Completed
+        </div>
+        <DataTable<ReviewRow>
+          columns={columns}
+          rows={sortedRows}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSort={handleSort}
+          selectedId={selectedId}
+          getRowId={(r) => r.id}
+          onSelect={setSelectedId}
+          onOpen={(r) => { void handleOpen(r); }}
+          tableLabel="Review Queue"
+          className="w-full"
+          theadClassName="bg-[#1F3864] text-white"
+          selectedRowClassName="bg-slate-100"
+        />
+        <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200">
+          Tip: Double-click a row or press Enter/Space to open.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-The table width without Bank PD and CAS PD will be 
-approximately 750px which fits comfortably in the 
-available right panel space on a laptop with the 
-sidebar expanded.
-
-On xl screens (1280px+) all columns show. On 
-smaller screens Bank PD and CAS PD are hidden.
-
-Show exact before/after for the columns array.
-No backend changes.
+Result:
+- Bank PD and CAS PD are hidden on laptop-sized screens, reducing the table width to fit within the right panel even with AppShell’s overflow-x-hidden on main.
+- On xl screens and above, all columns render.
+- No backend changes were made.
