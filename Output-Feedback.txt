@@ -1,41 +1,46 @@
-STOP. The flex approach is not working — the scroll 
-content is showing the wrong portion.
+Pre-fix snapshot in frontend/src/app/review-queue/page.tsx (before the grid change):
+1) Two-column wrapper div classes
+- Before: className="mt-4 flex gap-4 items-start"
 
-Revert the two-column layout change and use CSS Grid 
-with explicit sizing instead of flex.
+2) Draft Completed panel container div classes
+- Before: className="bg-white border border-slate-200 rounded h-full"
 
-Only modify frontend/src/app/review-queue/page.tsx
+3) Layout mode
+- Before: flex
 
-REVERT AND REPLACE the layout wrapper:
+Applied changes to use explicit CSS Grid with explicit sizing and proper scroll behavior.
 
-BEFORE (current flex approach — not working):
-<div className="mt-4 flex gap-4 items-start">
+Exact before/after:
+
+Layout wrapper
+- Before:
+  <div className="mt-4 flex gap-4 items-start">
+- After:
+  <div className="mt-4 grid gap-4 items-start" style={{ gridTemplateColumns: '300px 1fr' }}>
+
+Left panel (Progress Status)
+- Before:
   <aside className="w-[300px] shrink-0">
-  <section className="flex-1 min-w-0">
-
-AFTER (use explicit CSS Grid instead):
-<div className="mt-4 grid gap-4 items-start" 
-  style={{ gridTemplateColumns: '300px 1fr' }}>
+- After:
   <aside>
+
+Right panel (Draft Completed)
+- Before:
+  <section className="flex-1 min-w-0">
+- After:
   <section className="min-w-0 overflow-hidden">
 
+Inner scroll container in right panel
+- Before:
+  <div className="overflow-x-auto w-full">
+- After:
+  <div className="overflow-x-auto">
+
 Why this works:
-- grid-template-columns: 300px 1fr explicitly gives 
-  the left panel 300px and the right panel ALL 
-  remaining space (1fr)
-- 1fr is dynamic — it recalculates whenever the 
-  sidebar expands or collapses
-- min-w-0 overflow-hidden on the right section 
-  prevents the grid cell from overflowing its 
-  allocated 1fr space
-- This approach does not conflict with the inner 
-  overflow-x-auto scroll container
+- gridTemplateColumns: '300px 1fr' gives the left panel a fixed 300px and the right panel the remaining space.
+- 1fr dynamically adjusts when the sidebar expands/collapses.
+- min-w-0 overflow-hidden on the right section ensures the grid cell does not overflow its allocated space, while the inner overflow-x-auto handles horizontal scrolling.
+- Removing w-full from the inner scroll container avoids conflicting width constraints; the grid cell width governs available space.
+- The DataTable header remains aligned with brand color: theadClassName="bg-[#1F3864] text_white" is already set in the file.
 
-Also ensure the inner scroll container on the 
-right panel uses:
-<div className="overflow-x-auto">
-  (no w-full needed — the grid cell already 
-  determines the width)
-
-Show exact before/after.
-No backend changes.
+This reverts the flex approach and implements the explicit grid layout, ensuring the Draft Completed panel fills available space in both sidebar states and the scroll content shows correctly.
