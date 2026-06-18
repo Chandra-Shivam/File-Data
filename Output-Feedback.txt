@@ -1,98 +1,56 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+STOP. Only modify:
+frontend/src/app/review-queue/page.tsx
 
-Only modify:
-frontend/src/app/review/[ecif]/review-info/components/
-sections/ReviewInfoSection.tsx
+The "Open" button in the last column is getting 
+clipped on smaller laptop screens.
 
-FIX 1 — Email fields not updating when dropdown changes
+Before making changes, check:
+1. Does the table wrapper div have overflow-x-auto 
+   or overflow-auto? Show the current class.
+2. What is the width/minWidth set on the "Open" 
+   column definition? Show the columns array.
 
-Root cause: The email fields use Field component with 
-defaultValue (uncontrolled) in edit mode. Calling 
-changes.setField updates the save context but does NOT 
-update the displayed value. Need local state for emails.
+Then apply these two fixes:
 
-Step A — Add local state for email values:
-const [selectedReviewerEmail, setSelectedReviewerEmail] = 
-  useState<string>(a?.reviewerEmail ?? "")
-const [selectedManagerEmail, setSelectedManagerEmail] = 
-  useState<string>(a?.managerEmail ?? "")
+FIX 1 — Ensure horizontal scroll works on small screens
+The table wrapper must have overflow-x-auto so users 
+can scroll horizontally when the table is wider than 
+the viewport:
 
-Step B — Sync with server data:
-Add to the existing sync useEffect:
-useEffect(() => {
-  if (a?.reviewerName) setSelectedReviewer(a.reviewerName)
-  if (a?.managerName) setSelectedManager(a.managerName)
-  if (a?.reviewerEmail) setSelectedReviewerEmail(a.reviewerEmail)
-  if (a?.managerEmail) setSelectedManagerEmail(a.managerEmail)
-}, [a?.reviewerName, a?.managerName, 
-    a?.reviewerEmail, a?.managerEmail])
+If current class is "overflow-auto":
+  Change to "overflow-x-auto"
+If it already has "overflow-x-auto":
+  Leave it — the issue is column widths instead.
 
-Step C — Update local email state when dropdown changes:
-In Reviewer Select onChange, add:
-  if (user) {
-    setSelectedReviewerEmail(user.email)  // ← ADD THIS
-    changes?.setField("reviewInfo", "reviewerEmail", user.email)
-  }
+FIX 2 — Make the Open button more compact
+The "Open" button is pushing the table too wide.
+Replace the full text "Open" button with a compact 
+icon + text that shrinks gracefully:
 
-In Manager Select onChange, add:
-  if (user) {
-    setSelectedManagerEmail(user.email)  // ← ADD THIS
-    changes?.setField("reviewInfo", "managerEmail", user.email)
-  }
+Change the Open column definition:
+- Set a fixed small width on the column: width: 70
+- Change button text from "Open" to just "Open" but 
+  with compact padding:
+  
+  className="inline-flex items-center justify-center 
+  rounded bg-[#1F3864] text-white text-xs font-semibold 
+  px-2 py-1 cursor-pointer select-none 
+  whitespace-nowrap hover:opacity-90"
 
-Step D — Replace email Field rendering in edit mode:
-Find the Reviewer Email rendering in edit mode and 
-replace the Field component with a controlled input:
+The whitespace-nowrap prevents the button text from 
+wrapping which can cause row height issues.
 
-{isEditing ? (
-  <div className="flex flex-col gap-1">
-    <label className="text-xs text-slate-500 font-medium 
-      uppercase tracking-wider">REVIEWER EMAIL</label>
-    <input
-      className="w-full h-9 border border-slate-300 
-      rounded px-2 text-sm bg-white"
-      value={selectedReviewerEmail}
-      onChange={(e) => {
-        setSelectedReviewerEmail(e.target.value)
-        changes?.setField("reviewInfo", "reviewerEmail", 
-          e.target.value)
-      }}
-    />
-  </div>
-) : (
-  // keep existing mailto link rendering exactly as is
-)}
+FIX 3 — Set explicit column widths to prevent overflow
+In the columns array, set explicit widths to control 
+the table layout:
+- eCIF #: width: 80
+- Reviewer: width: 160  
+- Exposure: width: 120
+- Bank PD: width: 80
+- CAS PD: width: 80
+- Completed: width: 100
+- Open (action): width: 70
 
-Apply identical pattern for Manager Email using 
-selectedManagerEmail and setSelectedManagerEmail and 
-field name "managerEmail".
-
-FIX 2 — Examiner In Charge still editable in edit mode
-Root cause: Removing section/name from Field stops 
-saving changes but still renders an editable input.
-
-Replace the Examiner In Charge Field entirely with a 
-hardcoded read-only input that never changes regardless 
-of isEditing:
-
-BEFORE:
-<Field label="EXAMINER IN CHARGE" 
-  value={a?.examinerInCharge ?? ""} />
-
-AFTER:
-<div className="flex flex-col gap-1">
-  <label className="text-xs text-slate-500 font-medium 
-    uppercase tracking-wider">EXAMINER IN CHARGE</label>
-  <input
-    className="w-full h-9 border border-slate-200 
-    rounded px-2 text-sm bg-slate-100 text-slate-500 
-    cursor-not-allowed"
-    value={a?.examinerInCharge ?? ""}
-    readOnly
-  />
-</div>
-
-This always shows the disabled styling regardless of 
-edit mode — no conditional rendering needed.
-
-No backend changes. Show exact before/after.
+Show exact before/after for the columns array and 
+the table wrapper div class.
+No backend changes.
