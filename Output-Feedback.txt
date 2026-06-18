@@ -1,32 +1,37 @@
-STOP. Only fix the layout in:
-frontend/src/app/review-queue/page.tsx
+Applied the requested layout fix in frontend/src/app/review-queue/page.tsx by removing the inline-block min-w-max wrapper and enforcing min-widths directly on the header, table, and footer within a single overflow-x-auto container.
 
-Issue: The inline-block min-w-max wrapper from the 
-previous fix prevents the panel from expanding to 
-fill available space when the sidebar collapses.
+Exact before/after:
 
-Root cause: inline-block min-w-max shrinks to content 
-width and never grows, so it ignores available space.
-
-Fix: Remove the inline-block min-w-max wrapper entirely.
-Use min-width on the header and table instead — 
-they scroll when viewport is too narrow but expand 
-to fill all available space when there is room.
-
-BEFORE:
+BEFORE (previous state with problematic wrapper)
 <div className="bg-white border border-slate-200 rounded h-full">
   <div className="overflow-x-auto">
     <div className="inline-block min-w-max align-top">
-      <div className="px-3 py-2 bg-[#1F3864] ... min-w-full">
+      <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200 min-w-full">
         Draft Completed
       </div>
-      <DataTable ... className="w-full" />
-      <div className="... min-w-full">Tip: ...</div>
+      <DataTable<ReviewRow>
+        columns={columns}
+        rows={sortedRows}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSort={handleSort}
+        selectedId={selectedId}
+        getRowId={(r) => r.id}
+        onSelect={setSelectedId}
+        onOpen={(r) => { void handleOpen(r); }}
+        tableLabel="Review Queue"
+        className="w-full"
+        theadClassName="bg-slate-800 text-white"
+        selectedRowClassName="bg-slate-100"
+      />
+      <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200 min-w-full">
+        Tip: Double-click a row or press Enter/Space to open.
+      </div>
     </div>
   </div>
 </div>
 
-AFTER:
+AFTER (wrapper removed; min-widths on header/table/footer)
 <div className="bg-white border border-slate-200 rounded h-full">
   <div className="overflow-x-auto w-full">
     <div className="px-3 py-2 bg-[#1F3864] text-white 
@@ -34,7 +39,21 @@ AFTER:
       min-w-[700px] w-full">
       Draft Completed
     </div>
-    <DataTable ... className="w-full min-w-[700px]" />
+    <DataTable<ReviewRow>
+      columns={columns}
+      rows={sortedRows}
+      sortBy={sortBy}
+      sortDir={sortDir}
+      onSort={handleSort}
+      selectedId={selectedId}
+      getRowId={(r) => r.id}
+      onSelect={setSelectedId}
+      onOpen={(r) => { void handleOpen(r); }}
+      tableLabel="Review Queue"
+      className="w-full min-w-[700px]"
+      theadClassName="bg-slate-800 text-white"
+      selectedRowClassName="bg-slate-100"
+    />
     <div className="text-xs text-slate-500 px-3 py-2 
       border-t border-slate-200 min-w-[700px] w-full">
       Tip: Double-click a row or press Enter/Space to open.
@@ -43,13 +62,6 @@ AFTER:
 </div>
 
 Why this works:
-- w-full makes the container fill all available space 
-  when the sidebar expands or collapses
-- min-w-[700px] ensures table never collapses below 
-  a usable minimum width
-- When viewport < 700px: overflow-x-auto scrolls
-- When viewport > 700px: everything expands to fill space
-- Header and table always have the same min-width so 
-  they always scroll together perfectly
-
-No backend changes. Show exact before/after.
+- w-full on the scroll container allows the panel to expand to fill available space when the sidebar collapses/expands.
+- min-w-[700px] on the header, table, and footer ensures a usable minimum table width. Below that, overflow-x-auto provides horizontal scrolling.
+- Header and table share the same min-width, so they scroll together with a single scrollbar and the header always spans the full table width.
