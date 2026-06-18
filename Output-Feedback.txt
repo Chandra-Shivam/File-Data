@@ -1,67 +1,43 @@
-Applied the requested layout fix in frontend/src/app/review-queue/page.tsx by removing the inline-block min-w-max wrapper and enforcing min-widths directly on the header, table, and footer within a single overflow-x-auto container.
+STOP. Only fix the layout in:
+frontend/src/app/review-queue/page.tsx
 
-Exact before/after:
+Issue: When the sidebar is expanded, the Draft 
+Completed panel does not fill available space — 
+it appears cut off on the left. When sidebar collapses 
+it works. The panel needs to fill remaining space 
+in BOTH states.
 
-BEFORE (previous state with problematic wrapper)
-<div className="bg-white border border-slate-200 rounded h-full">
-  <div className="overflow-x-auto">
-    <div className="inline-block min-w-max align-top">
-      <div className="px-3 py-2 bg-[#1F3864] text-white text-xs font-semibold border-b border-slate-200 min-w-full">
-        Draft Completed
-      </div>
-      <DataTable<ReviewRow>
-        columns={columns}
-        rows={sortedRows}
-        sortBy={sortBy}
-        sortDir={sortDir}
-        onSort={handleSort}
-        selectedId={selectedId}
-        getRowId={(r) => r.id}
-        onSelect={setSelectedId}
-        onOpen={(r) => { void handleOpen(r); }}
-        tableLabel="Review Queue"
-        className="w-full"
-        theadClassName="bg-slate-800 text-white"
-        selectedRowClassName="bg-slate-100"
-      />
-      <div className="text-xs text-slate-500 px-3 py-2 border-t border-slate-200 min-w-full">
-        Tip: Double-click a row or press Enter/Space to open.
-      </div>
-    </div>
-  </div>
-</div>
+Before fixing, show me:
+1. The current CSS classes on the two-column wrapper 
+   div that contains Progress Status (left) and 
+   Draft Completed (right)
+2. The CSS classes on the Draft Completed panel div
+3. Is the layout using flex or grid?
 
-AFTER (wrapper removed; min-widths on header/table/footer)
-<div className="bg-white border border-slate-200 rounded h-full">
-  <div className="overflow-x-auto w-full">
-    <div className="px-3 py-2 bg-[#1F3864] text-white 
-      text-xs font-semibold border-b border-slate-200 
-      min-w-[700px] w-full">
-      Draft Completed
-    </div>
-    <DataTable<ReviewRow>
-      columns={columns}
-      rows={sortedRows}
-      sortBy={sortBy}
-      sortDir={sortDir}
-      onSort={handleSort}
-      selectedId={selectedId}
-      getRowId={(r) => r.id}
-      onSelect={setSelectedId}
-      onOpen={(r) => { void handleOpen(r); }}
-      tableLabel="Review Queue"
-      className="w-full min-w-[700px]"
-      theadClassName="bg-slate-800 text-white"
-      selectedRowClassName="bg-slate-100"
-    />
-    <div className="text-xs text-slate-500 px-3 py-2 
-      border-t border-slate-200 min-w-[700px] w-full">
-      Tip: Double-click a row or press Enter/Space to open.
-    </div>
-  </div>
-</div>
+Then apply this fix:
+- The two-column layout should use flex with the 
+  right panel filling remaining space:
 
-Why this works:
-- w-full on the scroll container allows the panel to expand to fill available space when the sidebar collapses/expands.
-- min-w-[700px] on the header, table, and footer ensures a usable minimum table width. Below that, overflow-x-auto provides horizontal scrolling.
-- Header and table share the same min-width, so they scroll together with a single scrollbar and the header always spans the full table width.
+  Outer wrapper:
+  className="flex gap-4 items-start"
+
+  Left panel (Progress Status):
+  className="w-[300px] shrink-0 ..."
+  (fixed width, never shrinks)
+
+  Right panel (Draft Completed):
+  className="flex-1 min-w-0 ..."
+  (fills ALL remaining space, min-w-0 prevents 
+  overflow issues in flex)
+
+The min-w-0 on the right panel is critical — 
+without it, flex children don't shrink below their 
+content size and the panel won't fill space correctly.
+
+Also fix: theadClassName is currently "bg-slate-800 
+text-white" — change to "bg-[#1F3864] text-white" 
+to match the brand blue used on the section header.
+
+Show exact before/after for the layout wrapper 
+and both panel divs.
+No backend changes.
