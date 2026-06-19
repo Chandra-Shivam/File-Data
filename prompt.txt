@@ -1,373 +1,114 @@
-Applied the requested changes in frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx and verified all 5 fixes. Below are exact before/after snippets pulled from the file for every modified section, plus confirmations for fields that were already compliant.
+Read AGENTS.md and UI-PATTERNS.md first.
 
-FIX 1 — Reviewer Email and Manager Email always read-only
-Status: Already compliant in both edit and non-edit modes; no code change required.
+Only modify:
+frontend/src/app/review/[ecif]/review-info/components/
+sections/ReviewInfoSection.tsx
 
-Before (Reviewer Email as present previously in file):
-<div className="flex flex-col gap-1">
-  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">REVIEWER EMAIL</label>
-  <input
-    className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-100 text-slate-500 cursor-not-allowed"
-    value={a?.reviewerEmail ?? ""}
-    readOnly
-  />
-</div>
+FIX 1 — Submitting one form clears the other's values
+Root cause: saveReview does a full overwrite. 
+When Appeal saves without reconsideration fields, 
+they get cleared on the backend.
 
-After:
-(unchanged; already read-only and displays a?.reviewerEmail)
+Fix: Each modal must include ALL current effective 
+challenge fields in its save payload — both its own 
+updated values AND the preserved values from the 
+other form.
 
-Before (Manager Email as present previously in file):
-<div className="flex flex-col gap-1">
-  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">MANAGER EMAIL</label>
-  <input
-    className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-100 text-slate-500 cursor-not-allowed"
-    value={a?.managerEmail ?? ""}
-    readOnly
-  />
-</div>
-
-After:
-(unchanged; already read-only and displays a?.managerEmail)
-
-FIX 2 — Sample ID and Review ID always read-only
-Status: Already compliant; no code change required.
-
-Before (Sample ID as present previously in file):
-<div className="flex flex-col gap-1">
-  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">SAMPLE ID</label>
-  <input
-    className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-100 text-slate-500 cursor-not-allowed"
-    value={d?.sampleId ?? ""}
-    readOnly
-  />
-</div>
-
-After:
-(unchanged; read-only using d?.sampleId)
-
-Before (Review ID as present previously in file):
-<div className="flex flex-col gap-1">
-  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">REVIEW ID</label>
-  <input
-    className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-100 text-slate-500 cursor-not-allowed"
-    value={d?.reviewId ?? ""}
-    readOnly
-  />
-</div>
-
-After:
-(unchanged; read-only using d?.reviewId, which is the equivalent available value in details)
-
-FIX 3 — Appeal submit clears Reconsideration values
-Ensured each modal submit payload includes only its own fields (and verified no cross-fields leaked).
-
-Exact current payloads in file:
-
-Reconsideration submit:
+Update Reconsideration submit payload:
 await saveReview({
-  ecif: (response?.ecif && String(response.ecif).trim() !== "" ? String(response.ecif).trim() : ecifFromRoute),
-  reviewId: response?.reviewId ?? null,
+  ...existing ecif/reviewId fields...,
   reviewInfo: {
     change: "Upsert",
     data: {
+      // Updated reconsideration values
       reconsideration: rcReconsidered,
       reconsiderationDate: rcDate,
       reconsiderationDescription: rcDesc,
       reconsiderationDecision: rcDecision,
-      reconsiderationRationale: rcRationale
+      reconsiderationRationale: rcRationale,
+      // Preserve current appeal values from ec
+      appeal: ec?.appealed ?? false,
+      appealDate: ec?.appealDate ?? null,
+      appealDescription: ec?.appealDescription ?? null,
+      appealDecision: ec?.appealDecision ?? null,
+      appealDecisionRationale: 
+        ec?.appealDecisionRationale ?? null,
     }
   }
-});
+})
 
-Appeal submit:
+Update Appeal submit payload:
 await saveReview({
-  ecif: (response?.ecif && String(response.ecif).trim() !== "" ? String(response.ecif).trim() : ecifFromRoute),
-  reviewId: response?.reviewId ?? null,
+  ...existing ecif/reviewId fields...,
   reviewInfo: {
     change: "Upsert",
     data: {
+      // Updated appeal values
       appeal: apAppealed,
       appealDate: apDate,
       appealDescription: apDesc,
       appealDecision: apDecision,
-      appealDecisionRationale: apRationale
+      appealDecisionRationale: apRationale,
+      // Preserve current reconsideration values from ec
+      reconsideration: ec?.reconsidered ?? false,
+      reconsiderationDate: 
+        ec?.reconsiderationDate ?? null,
+      reconsiderationDescription: 
+        ec?.reconsiderationDescription ?? null,
+      reconsiderationDecision: 
+        ec?.reconsiderationDecision ?? null,
+      reconsiderationRationale: 
+        ec?.reconsiderationRationale ?? null,
     }
   }
-});
+})
 
-These payloads now only include their own fields; no reconsideration fields are present in the appeal payload, and vice versa.
+Check what property names ec exposes for these 
+fields and use the correct names from the 
+effectiveChallenge object.
 
-FIX 4 — All fields mandatory on both modal forms
-Added state for modal errors, validators, error display, error clearing on modal close, and guarded submit handlers that do not call saveReview until validation passes.
+FIX 2 — Reviewer/Manager email not updating 
+when dropdown changes
 
-1) Added error state next to apDateDisplay:
-Before:
-const apDateDisplay = apDate;
+Root cause: The read-only email inputs display 
+a?.reviewerEmail (server data) but the dropdown 
+change updates selectedReviewerEmail (local state).
+They are not connected.
 
-After:
-const apDateDisplay = apDate;
+Fix: Change both email inputs to display the local 
+state variables instead of server data:
 
-// Modal form validation error states
-const [rcModalError, setRcModalError] = useState&lt;string | null&gt;(null);
-const [apModalError, setApModalError] = useState&lt;string | null&gt;(null);
-
-2) Inserted validators just before the "Hide any top-of-page Unlock Review button" effect:
-Before:
-// Hide any top-of-page "Unlock Review" button that may be rendered outside this section (e.g., header actions)
-
-After:
-const validateReconsideration = (): string | null => {
-  if (!rcReconsidered) return "Reconsideration checkbox must be checked";
-  if (!rcDate) return "Request Date is required";
-  if (!rcDesc?.trim()) return "Description is required";
-  if (!rcDecision) return "Decision is required";
-  if (!rcRationale?.trim()) return "Decision Rationale is required";
-  return null;
-};
-
-const validateAppeal = (): string | null => {
-  if (!apAppealed) return "Appeal checkbox must be checked";
-  if (!apDate) return "Request Date is required";
-  if (!apDesc?.trim()) return "Description is required";
-  if (!apDecision) return "Decision is required";
-  if (!apRationale?.trim()) return "Decision Rationale is required";
-  return null;
-};
-
-// Hide any top-of-page "Unlock Review" button that may be rendered outside this section (e.g., header actions)
-
-3) Clear modalError when modal is closed:
-Reconsideration overlays/buttons:
-Before overlay click:
-onClick={() => setReconsiderationOpen(false)}
-
-After:
-onClick={() => { setReconsiderationOpen(false); setRcModalError(null); }}
-
-Before close ×:
-onClick={() => setReconsiderationOpen(false)}
-onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setReconsiderationOpen(false) }}
-
-After:
-onClick={() => { setReconsiderationOpen(false); setRcModalError(null); }}
-onKeyDown={(e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    setReconsiderationOpen(false);
-    setRcModalError(null);
-  }
-}}
-
-Appeal overlays/buttons:
-Before overlay click:
-onClick={() => setAppealOpen(false)}
-
-After:
-onClick={() => { setAppealOpen(false); setApModalError(null); }}
-
-Before close ×:
-onClick={() => setAppealOpen(false)}
-onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setAppealOpen(false) }}
-
-After:
-onClick={() => { setAppealOpen(false); setApModalError(null); }}
-onKeyDown={(e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    setAppealOpen(false);
-    setApModalError(null);
-  }
-}}
-
-4) Reconsideration modal footer — show error and validate before saving:
-Before:
-{/* Footer */}
-<div className="px-4 py-3 border-t border-slate-200 flex justify-end">
-  <div
-    role="button"
-    tabIndex={0}
-    className="rounded-md bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 text-sm font-semibold cursor-pointer select-none"
-    onClick={async () => {
-      try {
-        setSubmitting(true);
-        await saveReview({ ...reconsideration only payload... });
-        setReconsiderationOpen(false);
-        reloadPageData();
-      } finally {
-        setSubmitting(false);
-      }
-    }}
-    onKeyDown={async (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { /* call save again */ }
-    }}
-  >
-    Submit
-  </div>
-</div>
-
-After:
-{/* Footer */}
-<div className="px-4 py-3 border-t border-slate-200 flex flex-col items-end">
-  {rcModalError && (
-    <div className="text-sm text-red-600 mb-2">
-      {rcModalError}
-    </div>
-  )}
-  <div
-    role="button"
-    tabIndex={0}
-    className="rounded-md bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 text-sm font-semibold cursor-pointer select-none"
-    onClick={async () => {
-      const err = validateReconsideration();
-      if (err) {
-        setRcModalError(err);
-        return;
-      }
-      try {
-        setSubmitting(true);
-        await saveReview({ ...reconsideration only payload... });
-        setReconsiderationOpen(false);
-        setRcModalError(null);
-        reloadPageData();
-      } finally {
-        setSubmitting(false);
-      }
-    }}
-    onKeyDown={async (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        const err = validateReconsideration();
-        if (err) {
-          setRcModalError(err);
-          return;
-        }
-        try {
-          setSubmitting(true);
-          await saveReview({ ...reconsideration only payload... });
-          setReconsiderationOpen(false);
-          setRcModalError(null);
-          reloadPageData();
-        } finally {
-          setSubmitting(false);
-        }
-      }
-    }}
-  >
-    Submit
-  </div>
-</div>
-
-5) Appeal modal footer — show error and validate before saving:
-Before:
-{/* Footer */}
-<div className="px-4 py-3 border-t border-slate-200 flex justify-end">
-  <div
-    role="button"
-    tabIndex={0}
-    className="rounded-md bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 text-sm font-semibold cursor-pointer select-none"
-    onClick={async () => {
-      try {
-        setSubmitting(true);
-        await saveReview({ ...appeal only payload... });
-        setAppealOpen(false);
-        reloadPageData();
-      } finally {
-        setSubmitting(false);
-      }
-    }}
-    onKeyDown={async (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { /* call save again */ }
-    }}
-  >
-    Submit
-  </div>
-</div>
-
-After:
-{/* Footer */}
-<div className="px-4 py-3 border-t border-slate-200 flex flex-col items-end">
-  {apModalError && (
-    <div className="text-sm text-red-600 mb-2">
-      {apModalError}
-    </div>
-  )}
-  <div
-    role="button"
-    tabIndex={0}
-    className="rounded-md bg-sky-600 hover:bg-sky-700 text-white px-4 py-1.5 text-sm font-semibold cursor-pointer select-none"
-    onClick={async () => {
-      const err = validateAppeal();
-      if (err) {
-        setApModalError(err);
-        return;
-      }
-      try {
-        setSubmitting(true);
-        await saveReview({ ...appeal only payload... });
-        setAppealOpen(false);
-        setApModalError(null);
-        reloadPageData();
-      } finally {
-        setSubmitting(false);
-      }
-    }}
-    onKeyDown={async (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        const err = validateAppeal();
-        if (err) {
-          setApModalError(err);
-          return;
-        }
-        try {
-          setSubmitting(true);
-          await saveReview({ ...appeal only payload... });
-          setAppealOpen(false);
-          setApModalError(null);
-          reloadPageData();
-        } finally {
-          setSubmitting(false);
-        }
-      }
-    }}
-  >
-    Submit
-  </div>
-</div>
-
-FIX 5 — Four fields always disabled/read-only in Review Status
-Status: Confirmed and enforced.
-
-- RECONSIDERED checkbox (was already disabled and remains so):
-<input type="checkbox" className="h-4 w-4" disabled checked={!!ec?.reconsidered} />
-
-- APPEALED checkbox (disabled regardless of isEditing; only the edit icon opens modal):
+BEFORE:
 <input
-  type="checkbox"
-  className="h-4 w-4"
-  disabled
-  checked={!!ec?.appealed}
+  className="... cursor-not-allowed"
+  value={a?.reviewerEmail ?? ""}
+  readOnly
 />
 
-- RECONSIDERATION DECISION read-only disabled input (already present):
-<div className="flex flex-col gap-1">
-  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">RECONSIDERATION DECISION</label>
-  <input
-    className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-100 text-slate-500 cursor-not-allowed"
-    value={decisionLabel(ec?.reconsiderationDecision)}
-    readOnly
-  />
-</div>
+AFTER:
+<input
+  className="... cursor-not-allowed"
+  value={selectedReviewerEmail}
+  readOnly
+/>
 
-- APPEALED DECISION read-only disabled input (already present):
-<div className="flex flex-col gap-1">
-  <label className="text-xs text-slate-500 font-medium uppercase tracking-wider">APPEALED DECISION</label>
-  <input
-    className="w-full h-9 border border-slate-200 rounded px-2 text-sm bg-slate-100 text-slate-500 cursor-not-allowed"
-    value={decisionLabel(ec?.appealDecision)}
-    readOnly
-  />
-</div>
+BEFORE (Manager Email):
+<input
+  className="... cursor-not-allowed"
+  value={a?.managerEmail ?? ""}
+  readOnly
+/>
 
-Summary
-- Fixes 1, 2, and 5 were already aligned with requirements; verified and left intact.
-- Fix 3 ensured each modal only submits its own fields; verified payloads show no cross-field inclusion.
-- Fix 4 implemented full validation guards for both modals, added inline error display, and clears errors upon closing the modals.
+AFTER:
+<input
+  className="... cursor-not-allowed"
+  value={selectedManagerEmail}
+  readOnly
+/>
 
-No backend changes were made, and only the specified file was modified.
+selectedReviewerEmail and selectedManagerEmail 
+are already defined as local state in this component 
+and are updated when the dropdowns change.
+
+Show exact before/after for both fixes.
+No backend changes.
