@@ -11,14 +11,6 @@ import { listUsers, type CasUser } from "@/services/api/casUsers";
 import { useFormChangesOptional } from "@/app/review/[ecif]/review-info/FormChangesContext";
 import ReactDOM from "react-dom";
 
-function todayInput(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function toDisplayFromInputDate(s: string): string {
   if (!s) return "";
   const parts = s.split("-");
@@ -46,6 +38,7 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
     const next = new URLSearchParams(sp?.toString() ?? "");
     next.set("t", String(Date.now()));
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    router.refresh();
   };
   const ecifFromRoute = (() => {
     const p: any = params as any;
@@ -609,7 +602,7 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
         document.body
       )}
 
-      {reconsiderationOpen && (
+      {reconsiderationOpen && ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/40"
@@ -661,13 +654,7 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
                     type="checkbox"
                     className="h-4 w-4"
                     checked={rcReconsidered}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setRcReconsidered(checked);
-                      if (checked && (!rcDate || rcDate.trim() === "")) {
-                        setRcDate(todayInput());
-                      }
-                    }}
+                    onChange={(e) => setRcReconsidered(e.target.checked)}
                     disabled={!isEditing || submitting}
                   />
                 </div>
@@ -676,8 +663,7 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
                   <label className="block text-xs text-slate-600 mb-1">REQUEST DATE</label>
                   {isEditing ? (
                     <input
-                      type="text"
-                      placeholder="MM/DD/YYYY"
+                      type="date"
                       value={rcDate}
                       onChange={(e) => setRcDate(e.target.value)}
                       className="w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white"
@@ -792,10 +778,11 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {appealOpen && (
+      {appealOpen && ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/40"
@@ -847,13 +834,7 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
                     type="checkbox"
                     className="h-4 w-4"
                     checked={apAppealed}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setApAppealed(checked);
-                      if (checked && (!apDate || apDate.trim() === "")) {
-                        setApDate(todayInput());
-                      }
-                    }}
+                    onChange={(e) => setApAppealed(e.target.checked)}
                     disabled={!isEditing || submitting}
                   />
                 </div>
@@ -862,8 +843,7 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
                   <label className="block text-xs text-slate-600 mb-1">REQUEST DATE</label>
                   {isEditing ? (
                     <input
-                      type="text"
-                      placeholder="MM/DD/YYYY"
+                      type="date"
                       value={apDate}
                       onChange={(e) => setApDate(e.target.value)}
                       className="w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white"
@@ -978,7 +958,8 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </>
