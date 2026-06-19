@@ -1,81 +1,60 @@
-Findings after reviewing AGENTS.md and the specified files:
+STOP. Only modify the date inputs in the 
+Reconsideration and Appeal modals in:
+frontend/src/app/review/[ecif]/review-info/components/
+sections/ReviewInfoSection.tsx
 
-1) Backend: SqlReviewRepository.GetReviewByKeys (and equivalents)
-- Expected fields and mappings:
-  - Prior_CAS_review_id → priorReviewId: NOT returned. None of the ReviewHeader SELECTs include Prior_CAS_review_id, and ReviewHeader has no property for it. Not mapped into ReviewForm.ReviewInfo.
-  - Prior_CAS_review_date → priorReviewDate: NOT returned. Not selected in any ReviewHeader SELECT and no property present. Not mapped into ReviewForm.ReviewInfo.
-  - Review_initial_approval_date → initialApproval: NOT returned. The ReviewHeader SELECTs do not include Review_initial_approval_date and there is no property for it. Not mapped into ReviewForm.ReviewInfo.
-  - Mentor_name → secondReviewer: NOT returned. The ReviewHeader SELECTs do not include Mentor_name and there is no property for it. Not mapped into ReviewForm.ReviewInfo.
-  - Mentor_review_date → secondReviewDate: NOT returned. The ReviewHeader SELECTs do not include Mentor_review_date and there is no property for it. Not mapped into ReviewForm.ReviewInfo.
-- Evidence:
-  - GetReviewHeaderByIdAsync / GetLatestReviewHeaderForEcifAsync / GetLatestReviewHeaderForSampleAndEcifAsync SELECT lists do not contain the five columns above.
-  - ReviewHeader class defines many fields, but none for Prior_CAS_review_id, Prior_CAS_review_date, Review_initial_approval_date, Mentor_name, Mentor_review_date.
-  - ReviewForm.ReviewInfo is constructed without any prior/mentor/initial-approval fields.
+The date picker shows but selected value doesn't 
+persist. Root cause: value={rcDate} on a controlled 
+date input resets when parent re-renders during 
+date selection in a portal.
 
-Result: All 5 fields are missing from the backend payload.
+Fix: Change from controlled to uncontrolled 
+for date inputs only. Use defaultValue + onChange 
++ ref pattern:
 
-2) Frontend hook: useReviewInfo.ts (status mapping)
-- Current ReviewInfo.status mapping in code:
-  - croStart = fmtDate(review.startDate)
-  - croComplete = fmtDate(review.endDate)
-  - distributed = fmtDate(review.distributedDate)
-  - finalized = fmtDate(review.finalizedDate)
-  - approverName = nz(txApproval.approver) || nz(reviewerName)
-  - mgrApproval = fmtDate(review.approvalDate)
-  - initialApproval = ""  // not provided by current payload
-- For the 5 requested fields:
-  - priorReviewId: NOT mapped (no field present in status).
-  - priorReviewDate: NOT mapped (no field present in status).
-  - initialApproval: Present but hardcoded to empty string ("").
-  - secondReviewer: NOT mapped (no field present in status).
-  - secondReviewDate: NOT mapped (no field present in status).
+RECONSIDERATION modal date input:
+BEFORE:
+<input
+  type="date"
+  value={rcDate}
+  onChange={(e) => setRcDate(e.target.value)}
+  className="..."
+/>
 
-Result: Only initialApproval exists in shape but is empty; the other four are not mapped.
+AFTER:
+<input
+  type="date"
+  defaultValue={rcDate}
+  onChange={(e) => setRcDate(e.target.value)}
+  onBlur={(e) => setRcDate(e.target.value)}
+  className="..."
+/>
 
-3) Frontend component: ReviewInfoSection.tsx (display of the 5 fields)
-- These 5 are rendered as fields in the Review Status section, but only Initial Approval is bound to the hook’s status; the others are hardcoded empty:
-  - Current JSX for these fields:
-    - Initial Approval:
-      Field label="INITIAL APPROVAL" value={s?.initialApproval ?? ""} />
-    - Second Reviewer:
-      Field label="SECOND REVIEWER" value="" />
-    - Second Review Date:
-      Field label="SECOND REVIEW DATE" value="" />
-    - Prior Review ID:
-      Field label="PRIOR REVIEW ID" value="" />
-    - Prior Review Date:
-      Field label="PRIOR REVIEW DATE" value="" />
-- Result: Initial Approval is displayed but always empty (since hook returns ""), the other four are displayed but always empty (hardcoded "").
+APPEAL modal date input:
+BEFORE:
+<input
+  type="date"
+  value={apDate}
+  onChange={(e) => setApDate(e.target.value)}
+  className="..."
+/>
 
-4) Database columns and backend usage
-- Columns presence in dbo.[02_CORE_02_Reviews] (from discovery/backend-schema/columns.csv):
-  - Prior_CAS_review_id: PRESENT
-  - Prior_CAS_review_date: PRESENT
-  - Review_initial_approval_date: PRESENT
-  - Mentor_name: PRESENT
-  - Mentor_review_date: PRESENT
-- Backend read status:
-  - None of these columns are selected in the repository’s ReviewHeader queries nor read elsewhere in SqlReviewRepository.cs.
-  - Therefore, they are not read or returned.
+AFTER:
+<input
+  type="date"
+  defaultValue={apDate}
+  onChange={(e) => setApDate(e.target.value)}
+  onBlur={(e) => setApDate(e.target.value)}
+  className="..."
+/>
 
-Summary: What is mapped vs missing
-- Backend payload (GetReviewByKeys / GetReviewByEcif):
-  - priorReviewId: Missing
-  - priorReviewDate: Missing
-  - initialApproval: Missing
-  - secondReviewer: Missing
-  - secondReviewDate: Missing
-- Frontend hook (useReviewInfo status):
-  - priorReviewId: Missing
-  - priorReviewDate: Missing
-  - initialApproval: Present but always "" (no backend value)
-  - secondReviewer: Missing
-  - secondReviewDate: Missing
-- Frontend display (ReviewInfoSection JSX):
-  - Initial Approval: Displayed via s?.initialApproval (currently empty)
-  - Second Reviewer: Displayed but hardcoded to ""
-  - Second Review Date: Displayed but hardcoded to ""
-  - Prior Review ID: Displayed but hardcoded to ""
-  - Prior Review Date: Displayed but hardcoded to ""
+Why this works:
+- defaultValue sets the initial value but the 
+  browser manages the visual state — no React 
+  re-render can reset what the user typed/selected
+- onChange still captures every change to state
+- onBlur as fallback ensures value is captured 
+  when user closes the date picker
 
-Conclusion: All five fields exist in the database schema, but none are read by the backend. The frontend renders all five, but only Initial Approval is wired to the hook (and that hook currently returns an empty string). The other four display fields are present in the JSX but not connected to any data (hardcoded to empty).
+Only these two inputs change. No other modifications.
+Show exact before/after.
