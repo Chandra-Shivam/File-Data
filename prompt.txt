@@ -1,15 +1,64 @@
-https://Chandra-Shivam:
+Read AGENTS.md and UI-PATTERNS.md first.
 
-ghp_
-=======================
-bidsbkbdkjc === test
-==========================
-CSK1a03UcuWOKUBGZ2Z
-========================
-ksbdjhbfd === test
-=========================
-aqdPXBqQlMD09TAHy
+Only modify:
+frontend/src/app/review/[ecif]/review-info/components/
+sections/ReviewInfoSection.tsx
 
-===================================
+Add date picker inputs (type="date") in edit mode 
+for these 9 fields, matching the exact pattern used 
+for the Reconsideration modal date input.
 
-@github.com/Chandra-Shivam/Encompass.git
+Before making changes, read the file and show:
+1. Current Field JSX for each of these 9 fields:
+   CRO START, SAMPLE DATE, CRO COMPLETE, DISTRIBUTED,
+   FINALIZED, INITIAL APPROVAL, MGR APPROVAL,
+   PRIOR REVIEW DATE, SECOND REVIEW DATE
+2. What section and field name does changes.setField 
+   use for each? (check useReviewInfo.ts save mappings)
+3. How does fmtDate format dates? 
+   (e.g. "4/1/2026" or "2026-04-01"?)
+
+Then for each of the 9 fields, replace the Field 
+component with this conditional pattern:
+
+{isEditing ? (
+  <div className="flex flex-col gap-1">
+    <label className="text-xs text-slate-500 font-medium 
+      uppercase tracking-wider">FIELD LABEL</label>
+    <input
+      type="date"
+      value={dateValue || ""}
+      onChange={(e) => {
+        changes?.setField("reviewInfo", "fieldName", 
+          e.target.value)
+      }}
+      className={`w-full h-9 border border-slate-300 
+        rounded px-2 text-sm bg-white
+        ${dateValue ? 'has-value' : ''}`}
+    />
+  </div>
+) : (
+  <Field label="FIELD LABEL" 
+    value={s?.fieldName ?? ""} />
+)}
+
+Important: type="date" requires YYYY-MM-DD format.
+If the current values come from fmtDate() as 
+"M/D/YYYY", convert them for the value prop using 
+a helper function:
+
+const toIsoDate = (display: string): string => {
+  if (!display) return ""
+  const d = new Date(display)
+  if (isNaN(d.getTime())) return ""
+  return d.toISOString().split("T")[0]
+}
+
+Use: value={toIsoDate(s?.croStart || "")}
+
+Apply this pattern to all 9 fields.
+Use the correct changes.setField field names 
+for each field from the save mappings.
+
+Show exact before/after for each of the 9 fields.
+No backend changes.
