@@ -35,10 +35,21 @@ export default function ReviewInfoSection({ unlockOpen: unlockOpenProp, onUnlock
   const pathname = usePathname();
   const sp = useSearchParams();
   const reloadPageData = (): void => {
+    // ReviewDataProvider serves a "zero-network fast path" from sessionStorage
+    // (key: `reviewQueue:<ecif>:<reviewId>`) whenever reviewId is in the URL.
+    // After a save we MUST invalidate it, otherwise the refetch just replays the
+    // stale cached payload and the saved change never appears on the page.
+    try {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith("reviewQueue:")) sessionStorage.removeItem(k);
+      }
+    } catch {}
+    // Bump a throwaway query param so the provider's effect re-runs; with the
+    // cache cleared it now falls through to a live getReviewByKeys() fetch.
     const next = new URLSearchParams(sp?.toString() ?? "");
     next.set("t", String(Date.now()));
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-    router.refresh();
   };
   const ecifFromRoute = (() => {
     const p: any = params as any;

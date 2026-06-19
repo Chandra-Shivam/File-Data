@@ -504,6 +504,19 @@ function ReviewInfoContent({ ecif }: { ecif: string }) {
       setIsEditing(false);
       setFormKey((k) => k + 1); // remount to reset any local inputs
       clear();
+
+      // Invalidate ReviewDataProvider's sessionStorage fast-path cache and bump a
+      // throwaway query param so it refetches fresh data; otherwise the just-saved
+      // changes are masked by the stale cached payload from the queue "Open".
+      try {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const k = sessionStorage.key(i);
+          if (k && k.startsWith("reviewQueue:")) sessionStorage.removeItem(k);
+        }
+      } catch {}
+      const nextParams = new URLSearchParams(sp?.toString() ?? "");
+      nextParams.set("t", String(Date.now()));
+      router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
     } catch (e: any) {
       const code = e?.code ? ` (${e.code})` : "";
       const msg = e?.message || "Save failed.";
