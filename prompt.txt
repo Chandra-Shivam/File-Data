@@ -1,52 +1,42 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+STOP. Only modify the date inputs in the 
+Reconsideration and Appeal modals in:
+frontend/src/app/review/[ecif]/review-info/components/
+sections/ReviewInfoSection.tsx
 
-All 5 fields exist in dbo.[02_CORE_02_Reviews] but 
-are not read by the backend or mapped to the frontend.
-Wire them end-to-end following Clean Architecture rules.
+THE PROBLEM IS NOT REACT STATE — IT IS CSS.
+globals.css has this rule:
+  input[type="date"]:not(.has-value) { color: #0000 }
+This makes the date value invisible when the 
+.has-value class is missing.
 
-STAGE 1 — Backend only. No frontend changes yet.
+Fix: Dynamically add the has-value class to both 
+date inputs when they have a non-empty value.
 
-Fields to add:
-- Prior_CAS_review_id → priorReviewId (int or string)
-- Prior_CAS_review_date → priorReviewDate (string/date)
-- Review_initial_approval_date → initialApproval (string/date)
-- Mentor_name → secondReviewer (string)
-- Mentor_review_date → secondReviewDate (string/date)
+RECONSIDERATION date input:
+BEFORE:
+  className="w-full h-9 border border-slate-300 
+    rounded px-2 text-sm bg-white"
 
-STEP 1 — Find and read these files:
-1. The ReviewHeader class — find its file path 
-   and show current properties
-2. SqlReviewRepository.cs — show the SELECT 
-   query for GetReviewHeaderByIdAsync
-3. The ReviewForm or ReviewInfo contract/DTO 
-   in Casrr.Application — show current properties
+AFTER:
+  className={`w-full h-9 border border-slate-300 
+    rounded px-2 text-sm bg-white
+    ${rcDate ? 'has-value' : ''}`}
 
-STEP 2 — Add to ReviewHeader class:
-Add the 5 new properties matching existing 
-property types and naming conventions in that class.
+APPEAL date input:
+BEFORE:
+  className="w-full h-9 border border-slate-300 
+    rounded px-2 text-sm bg-white"
 
-STEP 3 — Add to SQL SELECT:
-In GetReviewHeaderByIdAsync (and any other 
-ReviewHeader SELECT queries), add the 5 columns:
-  ,[Prior_CAS_review_id]
-  ,[Prior_CAS_review_date]
-  ,[Review_initial_approval_date]
-  ,[Mentor_name]
-  ,[Mentor_review_date]
+AFTER:
+  className={`w-full h-9 border border-slate-300 
+    rounded px-2 text-sm bg-white
+    ${apDate ? 'has-value' : ''}`}
 
-Map them to ReviewHeader properties in the 
-SqlDataReader mapping section.
+Also revert both date inputs back to controlled 
+(value= not defaultValue=) since state IS updating 
+correctly — the issue was CSS not React:
 
-STEP 4 — Add to ReviewInfo contract/DTO:
-In the Application layer contract that exposes 
-ReviewInfo to the frontend, add these 5 fields 
-so they are included in the API response.
+  value={rcDate}    (not defaultValue)
+  value={apDate}    (not defaultValue)
 
-STEP 5 — Map in the service/repository:
-Ensure the 5 new ReviewHeader properties flow 
-through to the ReviewInfo contract returned by 
-GetReviewByKeys.
-
-Show exact before/after for every file changed.
-Use raw ADO.NET (no EF) per AGENTS.md.
-No frontend changes yet.
+No other changes. Show exact before/after.
