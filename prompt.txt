@@ -1,216 +1,69 @@
-STEP 1 — Findings
+STOP. The backend is complete and confirmed working.
+Do NOT touch any backend files.
 
-1) ReviewHeader class
-- File path: backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs (private sealed class inside SqlReviewRepository)
-- Current properties:
-  public int Id { get; init; }
-  public string Ecif { get; init; } = "";
-  public string? Borrower { get; init; }
-  public string? CustomerNumber { get; init; }
-  public int? SampleId { get; init; }
-  public string? ReviewType { get; init; }
-  // Relationship overview
-  public string? Segment { get; init; }
-  public string? Unit { get; init; }
-  public string? Market { get; init; }
-  // People
-  public string? ReviewerDisplay { get; init; }        // First of CRO, RM, PM
-  public string? RelationshipMgrName { get; init; }
-  public string? PortfolioMgrName { get; init; }
-  public string? EcoName { get; init; }
-  public string? ScoName { get; init; }
-  // CRO assignments
-  public string? CroName { get; init; }
-  public string? CroEmail { get; init; }
-  public string? CroManagerName { get; init; }
-  public string? CroManagerEmail { get; init; }
-  // Identity/profile
-  public string? Portfolio { get; init; }              // Internal_portfolio
-  public string? PortfolioSegment { get; init; }       // Portfolio_sub_segment
-  public string? NaicsIndustry { get; init; }
-  public string? NaicsDescription { get; init; }
-  public string? CustomerSize { get; init; }
-  // Narrative
-  public string? BorrowerInformation { get; init; }
-  // Dates
-  public DateTime? SampleDate { get; init; }
-  public DateTime? StartDate { get; init; }
-  public DateTime? DistributedDate { get; init; }
-  public DateTime? CompletedDate { get; init; }
-  public DateTime? FinalizedDate { get; init; }
-  public DateTime? ApprovalDate { get; init; }
-  // Effective Challenge - Reconsideration
-  public bool? Reconsideration { get; init; }
-  public DateTime? ReconsiderationDate { get; init; }
-  public string? ReconsiderationDescription { get; init; }
-  public string? ReconsiderationDecision { get; init; }
-  public string? ReconsiderationRationale { get; init; }
-  // Effective Challenge - Appeal
-  public bool? Appeal { get; init; }
-  public DateTime? AppealDate { get; init; }
-  public string? AppealDescription { get; init; }
-  public string? AppealDecision { get; init; }
-  public string? AppealDecisionRationale { get; init; }
-  // New fields from dbo.[02_CORE_02_Reviews]
-  public int? PriorReviewId { get; init; }              // Prior_CAS_review_id
-  public DateTime? PriorReviewDate { get; init; }       // Prior_CAS_review_date
-  public DateTime? InitialApproval { get; init; }       // Review_initial_approval_date
-  public string? MentorName { get; init; }              // Mentor_name
-  public DateTime? SecondReviewDate { get; init; }      // Mentor_review_date
+The fields are empty because the frontend hasn't 
+been updated yet. Make these 3 frontend changes now.
 
-2) SqlReviewRepository.cs — SELECT for GetReviewHeaderByIdAsync
-- Method: GetReviewHeaderByIdAsync(int reviewId, CancellationToken ct)
-- SELECT (as implemented):
+FILE 1: frontend/src/services/api/reviews.ts
+Find the ReviewInfoSection TypeScript type/interface.
+Add these 5 fields if they don't exist:
 
-SELECT TOP (1)
-    r.[Review_id],                 -- 0
-    r.[eCIF_number],               -- 1
-    r.[Customer_name],             -- 2
-    r.[Customer_number],           -- 3
-    r.[Segment],                   -- 4
-    r.[Unit],                      -- 5
-    r.[Market],                    -- 6
-    r.[Internal_portfolio],        -- 7
-    r.[Portfolio_sub_segment],     -- 8
-    r.[Customer_size],             -- 9
-    r.[NAICS_industry],            -- 10
-    r.[NAICS_description],         -- 11
-    r.[CRO_name],                  -- 12
-    r.[Relationship_mgr_name],     -- 13
-    r.[Portfolio_mgr_name],        -- 14
-    r.[ECO_name],                  -- 15
-    r.[SCO_name],                  -- 16
-    r.[Borrower_information],      -- 17
-    r.[Sample_date],               -- 18
-    r.[Start_date],                -- 19
-    r.[Completed_date],            -- 20
-    r.[Review_finalized_date],     -- 21
-    r.[Review_approval_date],      -- 22
-    r.[Review_distributed_date],   -- 23
-    r.[Sample_id],                 -- 24
-    r.[Review_type],               -- 25
-    r.[CRO_email],                 -- 26
-    r.[CRO_manager_name],          -- 27
-    r.[CRO_manager_email],         -- 28
-    r.[Reconsideration],           -- 29
-    r.[Reconsideration_date],      -- 30
-    r.[Reconsideration_description],-- 31
-    r.[Reconsideration_decision],  -- 32
-    r.[Reconsideration_rationale], -- 33
-    r.[Appeal],                    -- 34
-    r.[Appeal_date],               -- 35
-    r.[Appeal_description],        -- 36
-    r.[Appeal_decision],           -- 37
-    r.[Appeal_decision_rationale], -- 38,
-    (SELECT TOP 1 r2.[Review_id]
-     FROM dbo.[02_CORE_02_Reviews] r2 WITH (NOLOCK)
-     WHERE r2.[Customer_number] = r.[Customer_number]
-       AND r2.[Review_id] != r.[Review_id]
-       AND (r2.[Cancelled] IS NULL OR r2.[Cancelled] = 0)
-       AND r2.[Review_finalized_date] = (
-         SELECT MAX(r3.[Review_finalized_date])
-         FROM dbo.[02_CORE_02_Reviews] r3 WITH (NOLOCK)
-         WHERE r3.[Customer_number] = r.[Customer_number]
-           AND r3.[Review_id] != r.[Review_id]
-           AND (r3.[Cancelled] IS NULL OR r3.[Cancelled] = 0)
-       )
-    ) AS [Prior_CAS_review_id],
-    (SELECT MAX(r2.[Review_finalized_date])
-     FROM dbo.[02_CORE_02_Reviews] r2 WITH (NOLOCK)
-     WHERE r2.[Customer_number] = r.[Customer_number]
-       AND r2.[Review_id] != r.[Review_id]
-       AND (r2.[Cancelled] IS NULL OR r2.[Cancelled] = 0)
-       AND r2.[Review_finalized_date] IS NOT NULL
-    ) AS [Prior_CAS_review_date],
-    r.[Review_initial_approval_date],
-    r.[Mentor_name],
-    r.[Mentor_review_date]
-FROM dbo.[02_CORE_02_Reviews] AS r WITH (NOLOCK)
-WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
-  AND r.[Review_id] = @id
-ORDER BY
-    ISNULL(r.[Review_approval_date], ISNULL(r.[Review_finalized_date], ISNULL(r.[Completed_date], ISNULL(r.[Review_distributed_date], ISNULL(r.[Start_date], '1900-01-01'))))) DESC,
-    r.[Review_id] DESC;
+  priorReviewId?: number | null
+  priorReviewDate?: string | null
+  initialApproval?: string | null
+  secondReviewer?: string | null
+  secondReviewDate?: string | null
 
-Note: The same 5 columns are included in the equivalent header queries:
-- GetLatestReviewHeaderForSampleAndEcifAsync
-- GetLatestReviewHeaderForEcifAsync
+Show exact before/after.
 
-3) ReviewForm or ReviewInfo contract/DTO in Casrr.Application
-- Application layer has no GET contract for ReviewForm/ReviewInfo at backend/src/Casrr.Application/Reviews/Contracts (only save contracts exist).
-- The API returns the Domain model ReviewQueueResponse from backend/src/Casrr.Domain/ReviewQueue.cs.
-- The ReviewInfoSection in the Domain currently includes the 5 requested fields:
-  public int? PriorReviewId { get; init; }              // Prior_CAS_review_id
-  public DateTime? PriorReviewDate { get; init; }       // Prior_CAS_review_date
-  public DateTime? InitialApproval { get; init; }       // Review_initial_approval_date
-  public string? SecondReviewer { get; init; }          // Mentor_name
-  public DateTime? SecondReviewDate { get; init; }      // Mentor_review_date
+FILE 2: frontend/src/app/review/[ecif]/review-info/
+components/sections/hooks/useReviewInfo.ts
 
+Find the status object mapping inside this hook.
+The status object currently has:
+  initialApproval: ""   ← hardcoded empty string
 
-STEP 2 — Add to ReviewHeader class
-- Status: Already implemented. The 5 properties exist with appropriate types and naming:
-  PriorReviewId (int?), PriorReviewDate (DateTime?), InitialApproval (DateTime?), MentorName (string?), SecondReviewDate (DateTime?).
+Replace that line and add all 5 fields:
+  priorReviewId: ri?.priorReviewId 
+    ? String(ri.priorReviewId) : "",
+  priorReviewDate: fmtDate(ri?.priorReviewDate),
+  initialApproval: fmtDate(ri?.initialApproval),
+  secondReviewer: ri?.secondReviewer ?? "",
+  secondReviewDate: fmtDate(ri?.secondReviewDate),
 
+Note: "ri" is the reviewInfo object from the hook — 
+use whatever variable name it actually uses in this file.
+Check the existing field mappings for the correct 
+variable name (e.g. ri, review, reviewInfo, data).
+Also check what fmtDate function is used for dates 
+and use the same one.
 
-STEP 3 — Add to SQL SELECT and map in SqlDataReader
-- Status: Already implemented across all ReviewHeader SELECTs:
-  - GetReviewHeaderByIdAsync
-  - GetLatestReviewHeaderForSampleAndEcifAsync
-  - GetLatestReviewHeaderForEcifAsync
-- Mapping in SqlDataReader for GetReviewHeaderByIdAsync (last lines):
-  PriorReviewId = rdr.IsDBNull(39) ? (int?)null : Convert.ToInt32(rdr.GetValue(39), CultureInfo.InvariantCulture),
-  PriorReviewDate = rdr.IsDBNull(40) ? (DateTime?)null : rdr.GetDateTime(40),
-  InitialApproval = rdr.IsDBNull(41) ? (DateTime?)null : rdr.GetDateTime(41),
-  MentorName = rdr.IsDBNull(42) ? null : rdr.GetString(42),
-  SecondReviewDate = rdr.IsDBNull(43) ? (DateTime?)null : rdr.GetDateTime(43)
+Show exact before/after.
 
+FILE 3: frontend/src/app/review/[ecif]/review-info/
+components/sections/ReviewInfoSection.tsx
 
-STEP 4 — Add to ReviewInfo contract/DTO (Application layer)
-- Status: No GET contract exists in Casrr.Application (by design for existing endpoints).
-- Per AGENTS.md, existing controllers may return domain types directly and must not be refactored unless explicitly asked. The Domain ReviewInfoSection already includes the 5 fields; therefore these fields are included in the API response without further changes.
+Find these 5 hardcoded empty Field components and 
+replace with bound values:
 
+BEFORE:
+<Field label="PRIOR REVIEW ID" value="" />
+<Field label="PRIOR REVIEW DATE" value="" />
+<Field label="SECOND REVIEWER" value="" />
+<Field label="SECOND REVIEW DATE" value="" />
 
-STEP 5 — Map in the service/repository to flow into API response
-- Status: Already implemented. The 5 ReviewHeader fields flow into ReviewInfoSection in both service paths:
-  - In GetReviewByEcifAsync:
-    PriorReviewId = row?.PriorReviewId,
-    PriorReviewDate = row?.PriorReviewDate,
-    InitialApproval = row?.InitialApproval,
-    SecondReviewer = row?.MentorName,
-    SecondReviewDate = row?.SecondReviewDate
-  - In GetReviewByKeysAsync:
-    PriorReviewId = row?.PriorReviewId,
-    PriorReviewDate = row?.PriorReviewDate,
-    InitialApproval = row?.InitialApproval,
-    SecondReviewer = row?.MentorName,
-    SecondReviewDate = row?.SecondReviewDate
+AFTER:
+<Field label="PRIOR REVIEW ID" 
+  value={s?.priorReviewId ?? ""} />
+<Field label="PRIOR REVIEW DATE" 
+  value={s?.priorReviewDate ?? ""} />
+<Field label="SECOND REVIEWER" 
+  value={s?.secondReviewer ?? ""} />
+<Field label="SECOND REVIEW DATE" 
+  value={s?.secondReviewDate ?? ""} />
 
+(Initial Approval is already bound to 
+s?.initialApproval — only update the 4 above)
 
-Before/After Summary (files changed)
-- No code changes were required; the backend already reads, maps, and returns these 5 fields end-to-end via raw ADO.NET (no EF) in SqlReviewRepository.
-- Consequently, there is no before/after diff to show for any file.
-
-
-Result
-- The 5 fields are already wired end-to-end for Stage 1 (backend):
-  - SQL: Selected in header queries from dbo.[02_CORE_02_Reviews]
-  - DataReader: Mapped into ReviewHeader
-  - Service/Repository: Mapped into Domain ReviewInfoSection
-  - API Response: Included in ReviewQueueResponse.Form.ReviewInfo
-
-
-## Developer Integration Checklist
-
-### Backend
-- [x] Register I&lt;Entity&gt;Repository → Sql&lt;Entity&gt;Repository in StartupExtensions.AddDataProviders() (Casrr.Api/Extensions/StartupExtensions.cs)
-- [x] Add DbSet&lt;&lt;Entity&gt;&gt; to CasrrDbContext in Infrastructure/SqlServer/ only if EF is used
-- [x] Confirm which [Authorize(Policy = "...")] applies and add it to the controller
-- [x] Verify SQL connection string name matches existing config in appsettings.json
-- [x] Run Add-Migration only if EF schema changed (flag was added in code) — not needed here
-
-### Frontend
-- [x] Create folder: frontend/src/app/maintenance/&lt;feature-name&gt;/ — not applicable in this task
-- [x] Verify 'use client' directive is present on all interactive components — not applicable in this task
-- [x] Verify service file base URL matches NEXT_PUBLIC_API_URL in .env.local — not applicable in this task
-- [x] Verify API route uses /api/v1/ prefix — existing endpoints already do
-- [x] Test: load, add, inline edit + save, inline edit + cancel, delete + confirm, delete + cancel — not applicable in this task
+No backend changes. Show exact before/after 
+for all 3 files.
