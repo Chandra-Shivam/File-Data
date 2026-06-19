@@ -1,69 +1,175 @@
-STOP. The backend is complete and confirmed working.
-Do NOT touch any backend files.
-
-The fields are empty because the frontend hasn't 
-been updated yet. Make these 3 frontend changes now.
+Frontend-only updates completed in all three files as requested. No backend files were modified. Below are exact before/after snippets for each change.
 
 FILE 1: frontend/src/services/api/reviews.ts
-Find the ReviewInfoSection TypeScript type/interface.
-Add these 5 fields if they don't exist:
-
-  priorReviewId?: number | null
-  priorReviewDate?: string | null
-  initialApproval?: string | null
-  secondReviewer?: string | null
-  secondReviewDate?: string | null
-
-Show exact before/after.
-
-FILE 2: frontend/src/app/review/[ecif]/review-info/
-components/sections/hooks/useReviewInfo.ts
-
-Find the status object mapping inside this hook.
-The status object currently has:
-  initialApproval: ""   ← hardcoded empty string
-
-Replace that line and add all 5 fields:
-  priorReviewId: ri?.priorReviewId 
-    ? String(ri.priorReviewId) : "",
-  priorReviewDate: fmtDate(ri?.priorReviewDate),
-  initialApproval: fmtDate(ri?.initialApproval),
-  secondReviewer: ri?.secondReviewer ?? "",
-  secondReviewDate: fmtDate(ri?.secondReviewDate),
-
-Note: "ri" is the reviewInfo object from the hook — 
-use whatever variable name it actually uses in this file.
-Check the existing field mappings for the correct 
-variable name (e.g. ri, review, reviewInfo, data).
-Also check what fmtDate function is used for dates 
-and use the same one.
-
-Show exact before/after.
-
-FILE 3: frontend/src/app/review/[ecif]/review-info/
-components/sections/ReviewInfoSection.tsx
-
-Find these 5 hardcoded empty Field components and 
-replace with bound values:
+Target: ReviewInfoSection – added 5 optional fields.
 
 BEFORE:
-<Field label="PRIOR REVIEW ID" value="" />
-<Field label="PRIOR REVIEW DATE" value="" />
-<Field label="SECOND REVIEWER" value="" />
-<Field label="SECOND REVIEW DATE" value="" />
+export type ReviewInfoSection = {
+  // New fields provided by backend for Review Info
+  sampleId?: number | null;
+  sampleDate?: string | null;       // ISO date
+  sampleType?: string | null;
+  sampleTarget?: string | null;
+
+  // Legacy/compat or additional timeline fields
+  distributedDate?: string | null;
+  finalizedDate?: string | null;
+  approvalDate?: string | null;
+
+  // Existing fields (kept for compatibility if backend later provides ids/lookups)
+  reviewTypeId?: string | null;
+  targetId?: string | null;
+  year?: number | null;
+  quarterId?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  riskRatingId?: string | null;
+
+  // Assignments (CRO fields) duplicated in Review Info for the Review Info page
+  reviewerName?: string | null;
+  reviewerEmail?: string | null;
+  managerName?: string | null;
+  managerEmail?: string | null;
+
+  // Effective Challenge - Reconsideration (mapped from dbo.[02_CORE_02_Reviews])
+  // Reconsideration is a bit/boolean in the database and should be serialized as boolean in JSON
+  reconsideration?: boolean | null;
+  reconsiderationDate?: string | null;            // ISO timestamp/date from server
+  reconsiderationDescription?: string | null;
+  reconsiderationDecision?: string | null;        // e.g., "APPROVED" | "DECLINED" | "NO_CHANGE"
+  reconsiderationRationale?: string | null;       // e.g., "NEW_INFO" | "ERROR_CORRECTION" | "OTHER"
+
+  // Effective Challenge - Appeal (mapped from dbo.[02_CORE_02_Reviews])
+  // Appeal is a bit/boolean in the database and should be serialized as boolean in JSON
+  appeal?: boolean | null;
+  appealDate?: string | null;                     // ISO timestamp/date from server
+  appealDescription?: string | null;
+  appealDecision?: string | null;                 // e.g., "APPROVED" | "DECLINED" | "NO_CHANGE"
+  appealDecisionRationale?: string | null;        // free text unless standardized
+};
 
 AFTER:
-<Field label="PRIOR REVIEW ID" 
-  value={s?.priorReviewId ?? ""} />
-<Field label="PRIOR REVIEW DATE" 
-  value={s?.priorReviewDate ?? ""} />
-<Field label="SECOND REVIEWER" 
-  value={s?.secondReviewer ?? ""} />
-<Field label="SECOND REVIEW DATE" 
-  value={s?.secondReviewDate ?? ""} />
+export type ReviewInfoSection = {
+  // New fields provided by backend for Review Info
+  sampleId?: number | null;
+  sampleDate?: string | null;       // ISO date
+  sampleType?: string | null;
+  sampleTarget?: string | null;
 
-(Initial Approval is already bound to 
-s?.initialApproval — only update the 4 above)
+  // Legacy/compat or additional timeline fields
+  distributedDate?: string | null;
+  finalizedDate?: string | null;
+  approvalDate?: string | null;
+  priorReviewId?: number | null;
+  priorReviewDate?: string | null;
+  initialApproval?: string | null;
+  secondReviewer?: string | null;
+  secondReviewDate?: string | null;
 
-No backend changes. Show exact before/after 
-for all 3 files.
+  // Existing fields (kept for compatibility if backend later provides ids/lookups)
+  reviewTypeId?: string | null;
+  targetId?: string | null;
+  year?: number | null;
+  quarterId?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  riskRatingId?: string | null;
+
+  // Assignments (CRO fields) duplicated in Review Info for the Review Info page
+  reviewerName?: string | null;
+  reviewerEmail?: string | null;
+  managerName?: string | null;
+  managerEmail?: string | null;
+
+  // Effective Challenge - Reconsideration (mapped from dbo.[02_CORE_02_Reviews])
+  // Reconsideration is a bit/boolean in the database and should be serialized as boolean in JSON
+  reconsideration?: boolean | null;
+  reconsiderationDate?: string | null;            // ISO timestamp/date from server
+  reconsiderationDescription?: string | null;
+  reconsiderationDecision?: string | null;        // e.g., "APPROVED" | "DECLINED" | "NO_CHANGE"
+  reconsiderationRationale?: string | null;       // e.g., "NEW_INFO" | "ERROR_CORRECTION" | "OTHER"
+
+  // Effective Challenge - Appeal (mapped from dbo.[02_CORE_02_Reviews])
+  // Appeal is a bit/boolean in the database and should be serialized as boolean in JSON
+  appeal?: boolean | null;
+  appealDate?: string | null;                     // ISO timestamp/date from server
+  appealDescription?: string | null;
+  appealDecision?: string | null;                 // e.g., "APPROVED" | "DECLINED" | "NO_CHANGE"
+  appealDecisionRationale?: string | null;        // free text unless standardized
+};
+
+FILE 2: frontend/src/app/review/[ecif]/review-info/components/sections/hooks/useReviewInfo.ts
+Target: status object mapping inside the hook. Replaced initialApproval mapping and added all 5 fields. Used the existing variable name review and the existing fmtDate function.
+
+A) Type shape for status
+
+BEFORE:
+  status: {
+    croStart: string;
+    croComplete: string;
+    distributed: string;
+    finalized: string;
+    approverName: string;
+    mgrApproval: string;
+    initialApproval: string;
+  };
+
+AFTER:
+  status: {
+    croStart: string;
+    croComplete: string;
+    distributed: string;
+    finalized: string;
+    approverName: string;
+    mgrApproval: string;
+    initialApproval: string;
+    priorReviewId: string;
+    priorReviewDate: string;
+    secondReviewer: string;
+    secondReviewDate: string;
+  };
+
+B) Mapping block in mapReviewToReviewInfo
+
+BEFORE:
+    status: {
+      croStart,
+      croComplete,
+      distributed,
+      finalized,
+      approverName: nz(txApproval.approver as string | null | undefined) || nz(reviewerName),
+      mgrApproval: fmtDate(review.approvalDate as string | null | undefined),
+      initialApproval: "" // not provided by current payload
+    },
+
+AFTER:
+    status: {
+      croStart,
+      croComplete,
+      distributed,
+      finalized,
+      approverName: nz(txApproval.approver as string | null | undefined) || nz(reviewerName),
+      mgrApproval: fmtDate(review.approvalDate as string | null | undefined),
+      priorReviewId: review?.priorReviewId ? String(review.priorReviewId) : "",
+      priorReviewDate: fmtDate(review.priorReviewDate as string | null | undefined),
+      initialApproval: fmtDate(review.initialApproval as string | null | undefined),
+      secondReviewer: review?.secondReviewer ?? "",
+      secondReviewDate: fmtDate(review.secondReviewDate as string | null | undefined),
+    },
+
+FILE 3: frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
+Target: Replace 4 hardcoded empty Field components with bound values from s.
+
+BEFORE:
+            <Field label="SECOND REVIEWER" value="" />
+            <Field label="SECOND REVIEW DATE" value="" />
+            <Field label="PRIOR REVIEW ID" value="" />
+            <Field label="PRIOR REVIEW DATE" value="" />
+
+AFTER:
+            <Field label="SECOND REVIEWER" value={s?.secondReviewer ?? ""} />
+            <Field label="SECOND REVIEW DATE" value={s?.secondReviewDate ?? ""} />
+            <Field label="PRIOR REVIEW ID" value={s?.priorReviewId ?? ""} />
+            <Field label="PRIOR REVIEW DATE" value={s?.priorReviewDate ?? ""} />
+
+All requested frontend changes have been applied, using the existing review variable and the existing fmtDate function for date formatting. No backend files were changed.
