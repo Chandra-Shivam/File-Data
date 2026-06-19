@@ -1,175 +1,34 @@
-Frontend-only updates completed in all three files as requested. No backend files were modified. Below are exact before/after snippets for each change.
+STOP. Only fix the SQL syntax error in:
+backend/src/Casrr.Infrastructure/SqlServer/
+SqlReviewRepository.cs
 
-FILE 1: frontend/src/services/api/reviews.ts
-Target: ReviewInfoSection – added 5 optional fields.
+The API returns 500 with:
+"Incorrect syntax near the keyword 'SELECT'"
 
-BEFORE:
-export type ReviewInfoSection = {
-  // New fields provided by backend for Review Info
-  sampleId?: number | null;
-  sampleDate?: string | null;       // ISO date
-  sampleType?: string | null;
-  sampleTarget?: string | null;
+Root cause: In all three SELECT queries 
+(GetReviewHeaderByIdAsync, 
+GetLatestReviewHeaderForSampleAndEcifAsync,
+GetLatestReviewHeaderForEcifAsync), the comma 
+separating the last original column from the 
+new subquery columns is in the SQL comment, 
+not as actual SQL.
 
-  // Legacy/compat or additional timeline fields
-  distributedDate?: string | null;
-  finalizedDate?: string | null;
-  approvalDate?: string | null;
+Find this pattern in all three queries:
+  r.[Appeal_decision_rationale]   -- 38,
+  (SELECT TOP 1 r2.[Review_id]
 
-  // Existing fields (kept for compatibility if backend later provides ids/lookups)
-  reviewTypeId?: string | null;
-  targetId?: string | null;
-  year?: number | null;
-  quarterId?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  riskRatingId?: string | null;
-
-  // Assignments (CRO fields) duplicated in Review Info for the Review Info page
-  reviewerName?: string | null;
-  reviewerEmail?: string | null;
-  managerName?: string | null;
-  managerEmail?: string | null;
-
-  // Effective Challenge - Reconsideration (mapped from dbo.[02_CORE_02_Reviews])
-  // Reconsideration is a bit/boolean in the database and should be serialized as boolean in JSON
-  reconsideration?: boolean | null;
-  reconsiderationDate?: string | null;            // ISO timestamp/date from server
-  reconsiderationDescription?: string | null;
-  reconsiderationDecision?: string | null;        // e.g., "APPROVED" | "DECLINED" | "NO_CHANGE"
-  reconsiderationRationale?: string | null;       // e.g., "NEW_INFO" | "ERROR_CORRECTION" | "OTHER"
-
-  // Effective Challenge - Appeal (mapped from dbo.[02_CORE_02_Reviews])
-  // Appeal is a bit/boolean in the database and should be serialized as boolean in JSON
-  appeal?: boolean | null;
-  appealDate?: string | null;                     // ISO timestamp/date from server
-  appealDescription?: string | null;
-  appealDecision?: string | null;                 // e.g., "APPROVED" | "DECLINED" | "NO_CHANGE"
-  appealDecisionRationale?: string | null;        // free text unless standardized
-};
-
-AFTER:
-export type ReviewInfoSection = {
-  // New fields provided by backend for Review Info
-  sampleId?: number | null;
-  sampleDate?: string | null;       // ISO date
-  sampleType?: string | null;
-  sampleTarget?: string | null;
-
-  // Legacy/compat or additional timeline fields
-  distributedDate?: string | null;
-  finalizedDate?: string | null;
-  approvalDate?: string | null;
-  priorReviewId?: number | null;
-  priorReviewDate?: string | null;
-  initialApproval?: string | null;
-  secondReviewer?: string | null;
-  secondReviewDate?: string | null;
-
-  // Existing fields (kept for compatibility if backend later provides ids/lookups)
-  reviewTypeId?: string | null;
-  targetId?: string | null;
-  year?: number | null;
-  quarterId?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  riskRatingId?: string | null;
-
-  // Assignments (CRO fields) duplicated in Review Info for the Review Info page
-  reviewerName?: string | null;
-  reviewerEmail?: string | null;
-  managerName?: string | null;
-  managerEmail?: string | null;
-
-  // Effective Challenge - Reconsideration (mapped from dbo.[02_CORE_02_Reviews])
-  // Reconsideration is a bit/boolean in the database and should be serialized as boolean in JSON
-  reconsideration?: boolean | null;
-  reconsiderationDate?: string | null;            // ISO timestamp/date from server
-  reconsiderationDescription?: string | null;
-  reconsiderationDecision?: string | null;        // e.g., "APPROVED" | "DECLINED" | "NO_CHANGE"
-  reconsiderationRationale?: string | null;       // e.g., "NEW_INFO" | "ERROR_CORRECTION" | "OTHER"
-
-  // Effective Challenge - Appeal (mapped from dbo.[02_CORE_02_Reviews])
-  // Appeal is a bit/boolean in the database and should be serialized as boolean in JSON
-  appeal?: boolean | null;
-  appealDate?: string | null;                     // ISO timestamp/date from server
-  appealDescription?: string | null;
-  appealDecision?: string | null;                 // e.g., "APPROVED" | "DECLINED" | "NO_CHANGE"
-  appealDecisionRationale?: string | null;        // free text unless standardized
-};
-
-FILE 2: frontend/src/app/review/[ecif]/review-info/components/sections/hooks/useReviewInfo.ts
-Target: status object mapping inside the hook. Replaced initialApproval mapping and added all 5 fields. Used the existing variable name review and the existing fmtDate function.
-
-A) Type shape for status
+The comma after 38 is INSIDE the comment and 
+is invisible to the SQL parser. Fix by moving 
+the comma to be actual SQL syntax:
 
 BEFORE:
-  status: {
-    croStart: string;
-    croComplete: string;
-    distributed: string;
-    finalized: string;
-    approverName: string;
-    mgrApproval: string;
-    initialApproval: string;
-  };
+  r.[Appeal_decision_rationale]   -- 38,
+  (SELECT TOP 1 r2.[Review_id]
 
 AFTER:
-  status: {
-    croStart: string;
-    croComplete: string;
-    distributed: string;
-    finalized: string;
-    approverName: string;
-    mgrApproval: string;
-    initialApproval: string;
-    priorReviewId: string;
-    priorReviewDate: string;
-    secondReviewer: string;
-    secondReviewDate: string;
-  };
+  r.[Appeal_decision_rationale],   -- 38
+  (SELECT TOP 1 r2.[Review_id]
 
-B) Mapping block in mapReviewToReviewInfo
-
-BEFORE:
-    status: {
-      croStart,
-      croComplete,
-      distributed,
-      finalized,
-      approverName: nz(txApproval.approver as string | null | undefined) || nz(reviewerName),
-      mgrApproval: fmtDate(review.approvalDate as string | null | undefined),
-      initialApproval: "" // not provided by current payload
-    },
-
-AFTER:
-    status: {
-      croStart,
-      croComplete,
-      distributed,
-      finalized,
-      approverName: nz(txApproval.approver as string | null | undefined) || nz(reviewerName),
-      mgrApproval: fmtDate(review.approvalDate as string | null | undefined),
-      priorReviewId: review?.priorReviewId ? String(review.priorReviewId) : "",
-      priorReviewDate: fmtDate(review.priorReviewDate as string | null | undefined),
-      initialApproval: fmtDate(review.initialApproval as string | null | undefined),
-      secondReviewer: review?.secondReviewer ?? "",
-      secondReviewDate: fmtDate(review.secondReviewDate as string | null | undefined),
-    },
-
-FILE 3: frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
-Target: Replace 4 hardcoded empty Field components with bound values from s.
-
-BEFORE:
-            <Field label="SECOND REVIEWER" value="" />
-            <Field label="SECOND REVIEW DATE" value="" />
-            <Field label="PRIOR REVIEW ID" value="" />
-            <Field label="PRIOR REVIEW DATE" value="" />
-
-AFTER:
-            <Field label="SECOND REVIEWER" value={s?.secondReviewer ?? ""} />
-            <Field label="SECOND REVIEW DATE" value={s?.secondReviewDate ?? ""} />
-            <Field label="PRIOR REVIEW ID" value={s?.priorReviewId ?? ""} />
-            <Field label="PRIOR REVIEW DATE" value={s?.priorReviewDate ?? ""} />
-
-All requested frontend changes have been applied, using the existing review variable and the existing fmtDate function for date formatting. No backend files were changed.
+Apply this same fix in all three SELECT queries.
+Show exact before/after for each occurrence.
+No other changes. No frontend changes.
