@@ -1,335 +1,104 @@
-Completed STAGE 1 (Backend only) end-to-end wiring for the five fields from dbo.[02_CORE_02_Reviews], using raw ADO.NET and following the existing repository pattern.
+Read AGENTS.md and UI-PATTERNS.md first.
 
-STEP 1 — File discovery and current state
+TWO TASKS — backend fix + frontend wiring.
 
-1) ReviewHeader class
-- File path: backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
-- Class: private sealed class ReviewHeader inside SqlReviewRepository
-- Current properties (post-change):
-  - Id: int
-  - Ecif: string
-  - Borrower: string?
-  - CustomerNumber: string?
-  - SampleId: int?
-  - ReviewType: string?
-  - Segment: string?
-  - Unit: string?
-  - Market: string?
-  - ReviewerDisplay: string?
-  - RelationshipMgrName: string?
-  - PortfolioMgrName: string?
-  - EcoName: string?
-  - ScoName: string?
-  - CroName: string?
-  - CroEmail: string?
-  - CroManagerName: string?
-  - CroManagerEmail: string?
-  - Portfolio: string?
-  - PortfolioSegment: string?
-  - NaicsIndustry: string?
-  - NaicsDescription: string?
-  - CustomerSize: string?
-  - BorrowerInformation: string?
-  - SampleDate: DateTime?
-  - StartDate: DateTime?
-  - DistributedDate: DateTime?
-  - CompletedDate: DateTime?
-  - FinalizedDate: DateTime?
-  - ApprovalDate: DateTime?
-  - Reconsideration: bool?
-  - ReconsiderationDate: DateTime?
-  - ReconsiderationDescription: string?
-  - ReconsiderationDecision: string?
-  - ReconsiderationRationale: string?
-  - Appeal: bool?
-  - AppealDate: DateTime?
-  - AppealDescription: string?
-  - AppealDecision: string?
-  - AppealDecisionRationale: string?
-  - PriorReviewId: int?            [NEW]
-  - PriorReviewDate: DateTime?     [NEW]
-  - InitialApproval: DateTime?     [NEW]
-  - MentorName: string?            [NEW]
-  - SecondReviewDate: DateTime?    [NEW]
+TASK 1 — Fix Prior Review ID and Date computation
+In backend/src/Casrr.Infrastructure/SqlServer/
+SqlReviewRepository.cs
 
-2) SqlReviewRepository.cs — SELECT for GetReviewHeaderByIdAsync
-- The GetReviewHeaderByIdAsync query now projects the 5 new columns after the existing index 38:
-  SELECT TOP (1)
-      r.[Review_id],                 -- 0
-      r.[eCIF_number],               -- 1
-      r.[Customer_name],             -- 2
-      r.[Customer_number],           -- 3
-      r.[Segment],                   -- 4
-      r.[Unit],                      -- 5
-      r.[Market],                    -- 6
-      r.[Internal_portfolio],        -- 7
-      r.[Portfolio_sub_segment],     -- 8
-      r.[Customer_size],             -- 9
-      r.[NAICS_industry],            -- 10
-      r.[NAICS_description],         -- 11
-      r.[CRO_name],                  -- 12
-      r.[Relationship_mgr_name],     -- 13
-      r.[Portfolio_mgr_name],        -- 14
-      r.[ECO_name],                  -- 15
-      r.[SCO_name],                  -- 16
-      r.[Borrower_information],      -- 17
-      r.[Sample_date],               -- 18
-      r.[Start_date],                -- 19
-      r.[Completed_date],            -- 20
-      r.[Review_finalized_date],     -- 21
-      r.[Review_approval_date],      -- 22
-      r.[Review_distributed_date],   -- 23
-      r.[Sample_id],                  -- 24
-      r.[Review_type],              -- 25
-      r.[CRO_email],                  -- 26
-      r.[CRO_manager_name],           -- 27
-      r.[CRO_manager_email],          -- 28
-      r.[Reconsideration],            -- 29
-      r.[Reconsideration_date],       -- 30
-      r.[Reconsideration_description],-- 31
-      r.[Reconsideration_decision],   -- 32
-      r.[Reconsideration_rationale],  -- 33
-      r.[Appeal],                     -- 34
-      r.[Appeal_date],                -- 35
-      r.[Appeal_description],         -- 36
-      r.[Appeal_decision],            -- 37
-      r.[Appeal_decision_rationale]   -- 38,
-      r.[Prior_CAS_review_id],
-      r.[Prior_CAS_review_date],
-      r.[Review_initial_approval_date],
-      r.[Mentor_name],
-      r.[Mentor_review_date]
-  FROM dbo.[02_CORE_02_Reviews] AS r WITH (NOLOCK)
-  WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
-    AND r.[Review_id] = @id
-  ORDER BY ...
+The current query reads Prior_CAS_review_id and 
+Prior_CAS_review_date directly from the row's 
+stored columns. These columns may be empty.
 
-- The same additions were made to:
-  - GetLatestReviewHeaderForSampleAndEcifAsync
-  - GetLatestReviewHeaderForEcifAsync
+Instead, COMPUTE them dynamically using subqueries
+in all three SELECT queries (GetReviewHeaderByIdAsync,
+GetLatestReviewHeaderForSampleAndEcifAsync,
+GetLatestReviewHeaderForEcifAsync):
 
-3) ReviewForm / ReviewInfo contract/DTO
-- The GET response DTOs live in Casrr.Domain (clean architecture: Domain models are used across Application/API).
-- File path: backend/src/Casrr.Domain/ReviewQueue.cs
-- Contract: ReviewInfoSection
-- Current properties (post-change):
-  - SampleId: int?
-  - SampleDate: DateTime?
-  - SampleType: string?
-  - SampleTarget: string?
-  - ReviewType: string?
-  - ReviewTypeId: string?
-  - TargetId: string?
-  - Year: short?
-  - QuarterId: string?
-  - StartDate: DateTime?
-  - DistributedDate: DateTime?
-  - FinalizedDate: DateTime?
-  - ApprovalDate: DateTime?
-  - EndDate: DateTime?
-  - PriorReviewId: int?            [NEW]
-  - PriorReviewDate: DateTime?     [NEW]
-  - InitialApproval: DateTime?     [NEW]
-  - SecondReviewer: string?        [NEW]
-  - SecondReviewDate: DateTime?    [NEW]
-  - RiskRatingId: string?
-  - ReviewerName: string?
-  - ReviewerEmail: string?
-  - ManagerName: string?
-  - ManagerEmail: string?
-  - Reconsideration: bool?
-  - ReconsiderationDate: DateTime?
-  - ReconsiderationDescription: string?
-  - ReconsiderationDecision: string?
-  - ReconsiderationRationale: string?
-  - Appeal: bool?
-  - AppealDate: DateTime?
-  - AppealDescription: string?
-  - AppealDecision: string?
-  - AppealDecisionRationale: string?
-
-STEP 2 — Add to ReviewHeader class
-- Added the five new properties to the internal ReviewHeader class (types chosen consistent with existing date/number usage):
-  - int? PriorReviewId
-  - DateTime? PriorReviewDate
-  - DateTime? InitialApproval
-  - string? MentorName
-  - DateTime? SecondReviewDate
-
-STEP 3 — Add to SQL SELECT and map (all ReviewHeader SELECTs)
-- Added the five columns to all ReviewHeader SELECTs:
-  ,[Prior_CAS_review_id]
-  ,[Prior_CAS_review_date]
-  ,[Review_initial_approval_date]
-  ,[Mentor_name]
-  ,[Mentor_review_date]
-- Mapped them in the reader to the new ReviewHeader properties with correct column ordinals 39–43.
-
-STEP 4 — Add to ReviewInfo contract/DTO
-- Updated ReviewInfoSection in Casrr.Domain to include:
-  - PriorReviewId: int?
-  - PriorReviewDate: DateTime?
-  - InitialApproval: DateTime?
-  - SecondReviewer: string?
-  - SecondReviewDate: DateTime?
-- Note: In this solution, the GET contract for the review payload lives in Domain (Casrr.Domain/ReviewQueue.cs). Casrr.Application contains save request/response models but not the GET ReviewInfo DTO. This matches the existing Clean Architecture layout and API usage patterns.
-
-STEP 5 — Map in service/repository
-- In SqlReviewRepository, when constructing the Domain ReviewInfoSection (for both GetReviewByEcifAsync and GetReviewByKeysAsync), the new ReviewHeader properties are mapped through to the ReviewInfoSection:
-  - PriorReviewId -> ReviewInfo.PriorReviewId
-  - PriorReviewDate -> ReviewInfo.PriorReviewDate
-  - InitialApproval -> ReviewInfo.InitialApproval
-  - MentorName -> ReviewInfo.SecondReviewer
-  - SecondReviewDate -> ReviewInfo.SecondReviewDate
-
-Exact before/after diffs (concise)
-
-A) backend/src/Casrr.Domain/ReviewQueue.cs (ReviewInfoSection only)
-
-- Before (excerpt):
-  public DateTime? ApprovalDate { get; init; }
-  public DateTime? EndDate { get; init; }
-
-  public string? RiskRatingId { get; init; }
-
-- After (excerpt):
-  public DateTime? ApprovalDate { get; init; }
-  public DateTime? EndDate { get; init; }
-
-  // New fields mapped from dbo.[02_CORE_02_Reviews]
-  public int? PriorReviewId { get; init; }              // Prior_CAS_review_id
-  public DateTime? PriorReviewDate { get; init; }       // Prior_CAS_review_date
-  public DateTime? InitialApproval { get; init; }       // Review_initial_approval_date
-  public string? SecondReviewer { get; init; }          // Mentor_name
-  public DateTime? SecondReviewDate { get; init; }      // Mentor_review_date
-
-  public string? RiskRatingId { get; init; }
-
-B) backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
-
-1. ReviewHeader class properties
-
-- Before (tail of class):
-  public string? AppealDecision { get; init; }
-  public string? AppealDecisionRationale { get; init; }
-
-- After (tail of class):
-  public string? AppealDecision { get; init; }
-  public string? AppealDecisionRationale { get; init; }
-  
-  // New fields from dbo.[02_CORE_02_Reviews]
-  public int? PriorReviewId { get; init; }
-  public DateTime? PriorReviewDate { get; init; }
-  public DateTime? InitialApproval { get; init; }
-  public string? MentorName { get; init; }
-  public DateTime? SecondReviewDate { get; init; }
-
-2. SELECT — GetReviewHeaderByIdAsync
-
-- Before (tail of SELECT list):
-  r.[Appeal_decision],            -- 37
-  r.[Appeal_decision_rationale]   -- 38
-
-- After (tail of SELECT list):
-  r.[Appeal_decision],            -- 37
-  r.[Appeal_decision_rationale]   -- 38,
+Replace:
   r.[Prior_CAS_review_id],
   r.[Prior_CAS_review_date],
-  r.[Review_initial_approval_date],
-  r.[Mentor_name],
-  r.[Mentor_review_date]
 
-3. Reader mapping — GetReviewHeaderByIdAsync object initializer (tail)
+With these computed subqueries:
+  (SELECT MAX(r2.[Review_finalized_date])
+   FROM dbo.[02_CORE_02_Reviews] r2 WITH (NOLOCK)
+   WHERE r2.[Customer_number] = r.[Customer_number]
+   AND r2.[Review_id] != r.[Review_id]
+   AND (r2.[Cancelled] IS NULL OR r2.[Cancelled] = 0)
+   AND r2.[Review_finalized_date] IS NOT NULL
+  ) AS [Prior_CAS_review_date],
 
-- Before (tail):
-  AppealDecision = rdr.IsDBNull(37) ? null : rdr.GetString(37),
-  AppealDecisionRationale = rdr.IsDBNull(38) ? null : rdr.GetString(38)
+  (SELECT TOP 1 r2.[Review_id]
+   FROM dbo.[02_CORE_02_Reviews] r2 WITH (NOLOCK)
+   WHERE r2.[Customer_number] = r.[Customer_number]
+   AND r2.[Review_id] != r.[Review_id]
+   AND (r2.[Cancelled] IS NULL OR r2.[Cancelled] = 0)
+   AND r2.[Review_finalized_date] = (
+     SELECT MAX(r3.[Review_finalized_date])
+     FROM dbo.[02_CORE_02_Reviews] r3 WITH (NOLOCK)
+     WHERE r3.[Customer_number] = r.[Customer_number]
+     AND r3.[Review_id] != r.[Review_id]
+     AND (r3.[Cancelled] IS NULL OR r3.[Cancelled] = 0)
+   )
+  ) AS [Prior_CAS_review_id],
 
-- After (tail):
-  AppealDecision = rdr.IsDBNull(37) ? null : rdr.GetString(37),
-  AppealDecisionRationale = rdr.IsDBNull(38) ? null : rdr.GetString(38),
-  PriorReviewId = rdr.IsDBNull(39) ? (int?)null : Convert.ToInt32(rdr.GetValue(39), CultureInfo.InvariantCulture),
-  PriorReviewDate = rdr.IsDBNull(40) ? (DateTime?)null : rdr.GetDateTime(40),
-  InitialApproval = rdr.IsDBNull(41) ? (DateTime?)null : rdr.GetDateTime(41),
-  MentorName = rdr.IsDBNull(42) ? null : rdr.GetString(42),
-  SecondReviewDate = rdr.IsDBNull(43) ? (DateTime?)null : rdr.GetDateTime(43)
+The column ordinals in the reader mapping (39, 40) 
+stay the same — only the SQL source changes.
 
-4. SELECT and mapping — GetLatestReviewHeaderForSampleAndEcifAsync
+TASK 2 — Stage 2 Frontend wiring
+Wire the 5 new fields from API to display.
 
-- Before (tail of SELECT list):
-  r.[Appeal_decision],            -- 37
-  r.[Appeal_decision_rationale]   -- 38
+FILE 1: frontend/src/app/review/[ecif]/review-info/
+components/sections/hooks/useReviewInfo.ts
 
-- After (tail of SELECT list):
-  r.[Appeal_decision],            -- 37
-  r.[Appeal_decision_rationale]   -- 38,
-  r.[Prior_CAS_review_id],
-  r.[Prior_CAS_review_date],
-  r.[Review_initial_approval_date],
-  r.[Mentor_name],
-  r.[Mentor_review_date]
+Find the status mapping section and add the 
+5 new fields. The API now returns these on 
+review.priorReviewId, review.priorReviewDate,
+review.initialApproval, review.secondReviewer,
+review.secondReviewDate (check the exact field 
+names on the ReviewInfo type in the frontend).
 
-- Mapping changes (tail) mirror the GetReviewHeaderByIdAsync mapping with ordinals 39–43.
+Add to the status object:
+  priorReviewId: review?.priorReviewId 
+    ? String(review.priorReviewId) : "",
+  priorReviewDate: fmtDate(review?.priorReviewDate),
+  initialApproval: fmtDate(review?.initialApproval),
+  secondReviewer: review?.secondReviewer ?? "",
+  secondReviewDate: fmtDate(review?.secondReviewDate),
 
-5. SELECT and mapping — GetLatestReviewHeaderForEcifAsync
+FILE 2: frontend/src/app/review/[ecif]/review-info/
+components/sections/ReviewInfoSection.tsx
 
-- Before (tail of SELECT list):
-  r.[Appeal_decision],            -- 37
-  r.[Appeal_decision_rationale]   -- 38
+Replace the 5 hardcoded empty Field values with 
+bindings to the hook's status object:
 
-- After (tail of SELECT list):
-  r.[Appeal_decision],            -- 37
-  r.[Appeal_decision_rationale]   -- 38,
-  r.[Prior_CAS_review_id],
-  r.[Prior_CAS_review_date],
-  r.[Review_initial_approval_date],
-  r.[Mentor_name],
-  r.[Mentor_review_date]
+BEFORE:
+<Field label="PRIOR REVIEW ID" value="" />
+<Field label="PRIOR REVIEW DATE" value="" />
+<Field label="INITIAL APPROVAL" 
+  value={s?.initialApproval ?? ""} />
+<Field label="SECOND REVIEWER" value="" />
+<Field label="SECOND REVIEW DATE" value="" />
 
-- Mapping changes (tail) mirror the GetReviewHeaderByIdAsync mapping with ordinals 39–43.
+AFTER:
+<Field label="PRIOR REVIEW ID" 
+  value={s?.priorReviewId ?? ""} />
+<Field label="PRIOR REVIEW DATE" 
+  value={s?.priorReviewDate ?? ""} />
+<Field label="INITIAL APPROVAL" 
+  value={s?.initialApproval ?? ""} />
+<Field label="SECOND REVIEWER" 
+  value={s?.secondReviewer ?? ""} />
+<Field label="SECOND REVIEW DATE" 
+  value={s?.secondReviewDate ?? ""} />
 
-6. Mapping into Domain ReviewInfo — GetReviewByEcifAsync and GetReviewByKeysAsync
+Also check frontend/src/services/api/reviews.ts —
+does ReviewInfoSection type include the 5 new 
+fields? If not, add them:
+  priorReviewId?: number | null
+  priorReviewDate?: string | null
+  initialApproval?: string | null
+  secondReviewer?: string | null
+  secondReviewDate?: string | null
 
-- Before (excerpt inside new ReviewInfoSection { ... }):
-  EndDate = row?.CompletedDate ?? row?.FinalizedDate ?? row?.ApprovalDate,
-  // Map Bank PD to Risk Rating placeholder if needed later.
-  RiskRatingId = null,
-
-- After (excerpt inside new ReviewInfoSection { ... }):
-  EndDate = row?.CompletedDate ?? row?.FinalizedDate ?? row?.ApprovalDate,
-  PriorReviewId = row?.PriorReviewId,
-  PriorReviewDate = row?.PriorReviewDate,
-  InitialApproval = row?.InitialApproval,
-  SecondReviewer = row?.MentorName,
-  SecondReviewDate = row?.SecondReviewDate,
-  // Map Bank PD to Risk Rating placeholder if needed later.
-  RiskRatingId = null,
-
-Validation against requirements
-
-- 5 fields exist in dbo.[02_CORE_02_Reviews] and now flow end-to-end via:
-  SQL SELECT -> internal ReviewHeader -> ReviewInfoSection -> API response
-- Clean Architecture observed:
-  - Repository maps raw ADO.NET results to Domain models; Application service returns Domain models
-  - No frontend changes in this stage
-- Raw ADO.NET used (no EF) for the ReviewHeader work and other sections; existing EF usage for aggregation/lookups was left untouched as per project baseline.
-
-Files modified
-
-- backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
-  - Added new columns to three SELECT queries
-  - Mapped new columns in SqlDataReader read
-  - Extended internal ReviewHeader class with new properties
-  - Mapped new properties into ReviewInfoSection in both GetReviewByEcifAsync and GetReviewByKeysAsync
-
-- backend/src/Casrr.Domain/ReviewQueue.cs
-  - Extended ReviewInfoSection with the five new properties
-
-No other files required changes in STAGE 1.
-
-This completes STAGE 1 — Backend changes with end-to-end wiring for the five fields. The API payloads for ReviewInfo now include:
-- priorReviewId
-- priorReviewDate
-- initialApproval
-- secondReviewer
-- secondReviewDate
+Show exact before/after for every file changed.
