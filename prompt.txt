@@ -1,17 +1,60 @@
+STOP. The correlated subqueries in the SELECT clause 
+are causing SQL Server syntax errors. Replace them 
+with LEFT JOINs which are cleaner and more reliable.
 
-{type: "about:blank", title: "Internal Server Error", status: 500,…}
-detail
-: 
-"An unexpected error occurred."
-error
-: 
-"Incorrect syntax near the keyword 'SELECT'.\r\nIncorrect syntax near ')'.\r\nIncorrect syntax near the keyword 'AS'.\r\nIncorrect syntax near the keyword 'with'. If this statement is a common table expression, an xmlnamespaces clause or a change tracking context clause, the previous statement must be terminated with a semicolon."
-status
-: 
-500
-title
-: 
-"Internal Server Error"
-type
-: 
-"about:blank"
+Only modify:
+backend/src/Casrr.Infrastructure/SqlServer/
+SqlReviewRepository.cs
+
+First, show me the COMPLETE current SQL string for 
+GetReviewHeaderByIdAsync so I can see exactly what 
+is there now.
+
+Then apply this fix in all three SELECT queries
+(GetReviewHeaderByIdAsync, 
+GetLatestReviewHeaderForSampleAndEcifAsync,
+GetLatestReviewHeaderForEcifAsync):
+
+STEP 1 — Remove the correlated subqueries from 
+the SELECT list entirely:
+Remove these lines from SELECT:
+  (SELECT TOP 1 r2.[Review_id] ...) AS [Prior_CAS_review_id],
+  (SELECT MAX(...) ...) AS [Prior_CAS_review_date],
+
+STEP 2 — Add LEFT JOINs to the FROM clause 
+(after the existing WITH (NOLOCK) on r):
+
+LEFT JOIN (
+    SELECT 
+        [Customer_number],
+        MAX([Review_finalized_date]) AS [MaxFinalizedDate]
+    FROM dbo.[02_CORE_02_Reviews] WITH (NOLOCK)
+    WHERE ([Cancelled] IS NULL OR [Cancelled] = 0)
+      AND [Review_finalized_date] IS NOT NULL
+    GROUP BY [Customer_number]
+) AS priorMax 
+    ON priorMax.[Customer_number] = r.[Customer_number]
+
+LEFT JOIN dbo.[02_CORE_02_Reviews] AS priorReview 
+    WITH (NOLOCK)
+    ON priorReview.[Customer_number] = r.[Customer_number]
+    AND priorReview.[Review_finalized_date] = 
+        priorMax.[MaxFinalizedDate]
+    AND priorReview.[Review_id] != r.[Review_id]
+    AND (priorReview.[Cancelled] IS NULL 
+         OR priorReview.[Cancelled] = 0)
+
+STEP 3 — Add to SELECT list (simple column reads):
+  priorReview.[Review_id] AS [Prior_CAS_review_id],
+  priorMax.[MaxFinalizedDate] AS [Prior_CAS_review_date],
+  r.[Review_initial_approval_date],
+  r.[Mentor_name],
+  r.[Mentor_review_date]
+
+The ordinal positions 39-43 in the SqlDataReader 
+mapping stay the same — only the SQL source changes.
+
+Show the complete final SQL for 
+GetReviewHeaderByIdAsync so I can verify it 
+before applying to the other two queries.
+No frontend changes.
