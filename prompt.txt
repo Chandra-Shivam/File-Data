@@ -1,128 +1,46 @@
-Completed requested fixes in frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx with only this file modified. Below are the exact changes and verifications.
+Read AGENTS.md and UI-PATTERNS.md first.
 
-Fix 1 — Unlock modal radio buttons replaced with div-based toggles
-- Status: Already implemented in this file using div role="radio" with keyboard support; no additional change needed.
-- Current implementation for each option (GENERAL shown; same pattern for RECONSIDERATION and APPEAL):
-  After:
-  <div
-    role="radio"
-    aria-checked={unlockReason === "GENERAL"}
-    tabIndex={0}
-    onClick={() => setUnlockReason("GENERAL")}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter' || e.key === ' ')
-        setUnlockReason("GENERAL")
-    }}
-    className="flex items-center gap-2 cursor-pointer select-none p-2 rounded hover:bg-slate-50"
-  >
-    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${unlockReason === "GENERAL" ? "border-sky-500 bg-sky-500" : "border-slate-400"}`}>
-      {unlockReason === "GENERAL" && (
-        <div className="w-2 h-2 rounded-full bg-white" />
-      )}
-    </div>
-    <span className="text-sm">
-      Unlock review for general revisions
-    </span>
-  </div>
+Check these files and report findings only 
+(no changes yet):
 
-Fix 2 — Request Date fields changed from native date to text (both modals)
-- Reconsideration modal:
-  After (edit mode):
-  <input
-    type="text"
-    placeholder="MM/DD/YYYY"
-    value={rcDate}
-    onChange={(e) => setRcDate(e.target.value)}
-    className="w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white"
-  />
-  After (view mode/read-only formatted):
-  <input
-    type="text"
-    className="w-full border border-slate-300 rounded px-2 py-1 text-sm bg-white"
-    value={toDisplayFromInputDate(rcDateDisplay)}
-    readOnly
-  />
+1. backend/src/Casrr.Infrastructure/SqlServer/
+   SqlReviewRepository.cs
+   - Does GetReviewByKeys or equivalent return 
+     these fields:
+     * Prior_CAS_review_id → priorReviewId
+     * Prior_CAS_review_date → priorReviewDate
+     * Review_initial_approval_date → initialApproval
+     * Mentor_name → secondReviewer
+     * Mentor_review_date → secondReviewDate
 
-- Appeal modal:
-  After (edit mode):
-  <input
-    type="text"
-    placeholder="MM/DD/YYYY"
-    value={apDate}
-    onChange={(e) => setApDate(e.target.value)}
-    className="w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white"
-  />
-  After (view mode/read-only formatted):
-  <input
-    type="text"
-    className="w-full border border-slate-300 rounded px-2 py-1 text-sm bg-white"
-    value={toDisplayFromInputDate(apDateDisplay)}
-    readOnly
-  />
+2. frontend/src/app/review/[ecif]/review-info/
+   components/sections/hooks/useReviewInfo.ts
+   - Does the reviewInfo status section map these 
+     5 fields? Show the current status field mappings.
 
-Fix 3 — Submit not reflecting on Review Form
-1) Exact fields passed to saveReview (now):
-- Reconsideration modal submit:
-  reviewInfo: {
-    change: "Upsert",
-    data: {
-      reconsideration: rcReconsidered,
-      reconsiderationDate: rcDateDisplay,
-      reconsiderationDescription: rcDesc,
-      reconsiderationDecision: rcDecision,
-      reconsiderationRationale: rcRationale
-    }
-  }
+3. frontend/src/app/review/[ecif]/review-info/
+   components/sections/ReviewInfoSection.tsx
+   - Are these 5 fields being displayed?
+     * Prior Review ID
+     * Prior Review Date  
+     * Initial Approval
+     * Second Reviewer
+     * Second Review Date
+   - Show the current JSX for these fields.
 
-- Appeal modal submit:
-  reviewInfo: {
-    change: "Upsert",
-    data: {
-      appeal: apAppealed,
-      appealDate: apDateDisplay,
-      appealDescription: apDesc,
-      appealDecision: apDecision,
-      appealDecisionRationale: apRationale
-    }
-  }
+4. For Prior Review ID and Prior Review Date:
+   The legacy logic is:
+   - Prior Review Date = MAX(Review_finalized_date) 
+     for same Customer_number in Reviews table 
+     (excluding current review)
+   - Prior Review ID = Review_id WHERE 
+     Review_finalized_date = Prior Review Date 
+     AND Customer_number = same customer
+   
+   Check: are Prior_CAS_review_id and 
+   Prior_CAS_review_date already stored as columns 
+   in dbo.[02_CORE_02_Reviews]? If yes, are they 
+   being read by the backend?
 
-2) Field names in useReviewInfo.ts that map to reconsidered, reconsiderationDecision, appealed, appealDecision:
-- effectiveChallenge.reconsidered is derived from review.reconsideration
-- effectiveChallenge.reconsiderationDecision is derived from review.reconsiderationDecision
-- effectiveChallenge.appealed is derived from review.appeal
-- effectiveChallenge.appealDecision is derived from review.appealDecision
-
-Verification and corrections applied:
-- There was a mismatch (posting reconsidered and appealed). Corrected to match useReviewInfo.ts and the ReviewInfoSection service type:
-
-  Reconsideration modal payload key:
-  Before:
-  reconsidered: rcReconsidered,
-  After:
-  reconsideration: rcReconsidered,
-
-  Appeal modal payload key:
-  Before:
-  appealed: apAppealed,
-  After:
-  appeal: apAppealed,
-
-- Post-submit refresh: After saveReview resolves, both modals call set{Modal}Open(false) and reloadPageData() to refresh displayed values immediately:
-
-  setReconsiderationOpen(false);
-  reloadPageData();
-
-  setAppealOpen(false);
-  reloadPageData();
-
-Fix 4 — All modal action buttons use div role="button"
-- Verified all buttons inside the three modals (Unlock, Reconsideration, Appeal) are non-native and implemented as div role="button" with keyboard handlers:
-  - Unlock modal: Close (×) and Confirm are div role="button"
-  - Reconsideration modal: Close (×) and Submit are div role="button"
-  - Appeal modal: Close (×) and Submit are div role="button"
-- No native <button> elements exist inside these modals, ensuring they are not blocked by an ancestor fieldset disabled.
-
-Notes
-- No backend changes.
-- Only the specified file was edited.
-- Unlock modal already used the div-based radio pattern; date fields now text inputs in both modals; submit payload keys corrected to match useReviewInfo mapping; reloadPageData is called post-save.
+Report exactly what is mapped vs missing.
+Do NOT make any changes yet.
