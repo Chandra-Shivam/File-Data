@@ -1,34 +1,17 @@
-STOP. Only fix the SQL syntax error in:
-backend/src/Casrr.Infrastructure/SqlServer/
-SqlReviewRepository.cs
 
-The API returns 500 with:
-"Incorrect syntax near the keyword 'SELECT'"
-
-Root cause: In all three SELECT queries 
-(GetReviewHeaderByIdAsync, 
-GetLatestReviewHeaderForSampleAndEcifAsync,
-GetLatestReviewHeaderForEcifAsync), the comma 
-separating the last original column from the 
-new subquery columns is in the SQL comment, 
-not as actual SQL.
-
-Find this pattern in all three queries:
-  r.[Appeal_decision_rationale]   -- 38,
-  (SELECT TOP 1 r2.[Review_id]
-
-The comma after 38 is INSIDE the comment and 
-is invisible to the SQL parser. Fix by moving 
-the comma to be actual SQL syntax:
-
-BEFORE:
-  r.[Appeal_decision_rationale]   -- 38,
-  (SELECT TOP 1 r2.[Review_id]
-
-AFTER:
-  r.[Appeal_decision_rationale],   -- 38
-  (SELECT TOP 1 r2.[Review_id]
-
-Apply this same fix in all three SELECT queries.
-Show exact before/after for each occurrence.
-No other changes. No frontend changes.
+{type: "about:blank", title: "Internal Server Error", status: 500,…}
+detail
+: 
+"An unexpected error occurred."
+error
+: 
+"Incorrect syntax near the keyword 'SELECT'.\r\nIncorrect syntax near ')'.\r\nIncorrect syntax near the keyword 'AS'.\r\nIncorrect syntax near the keyword 'with'. If this statement is a common table expression, an xmlnamespaces clause or a change tracking context clause, the previous statement must be terminated with a semicolon."
+status
+: 
+500
+title
+: 
+"Internal Server Error"
+type
+: 
+"about:blank"
