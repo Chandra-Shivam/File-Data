@@ -1,57 +1,124 @@
-STOP. Only modify the 9 date inputs in:
+Read AGENTS.md and UI-PATTERNS.md first.
+
+Only modify:
 frontend/src/app/review/[ecif]/review-info/components/
 sections/ReviewInfoSection.tsx
 
-The date inputs use value={toIsoDate(...)} which is 
-controlled. When onChange fires and calls setField, 
-React resets the input because the source value 
-(s?.croStart etc.) hasn't changed.
+5 targeted fixes:
 
-Fix ALL 9 date inputs with this pattern:
+FIX 1 — Reviewer Email and Manager Email always read-only
+These fields must be read-only in BOTH edit and non-edit 
+mode — they only update automatically when Reviewer or 
+Manager dropdown changes.
 
-BEFORE (controlled — broken):
-<input
-  type="date"
-  value={toIsoDate(s?.croStart || "")}
-  onChange={(e) => {
-    changes?.setField("reviewInfo", "startDate", 
-      e.target.value)
-  }}
-  className={`... ${toIsoDate(s?.croStart || "") 
-    ? 'has-value' : ''}`}
-/>
+Find the Reviewer Email and Manager Email Field 
+components (or controlled inputs in edit mode).
+Replace both with hardcoded read-only inputs 
+that never change regardless of isEditing:
 
-AFTER (uncontrolled with key — works):
-<input
-  type="date"
-  key={toIsoDate(s?.croStart || "")}
-  defaultValue={toIsoDate(s?.croStart || "")}
-  onChange={(e) => {
-    e.currentTarget.classList.toggle(
-      'has-value', !!e.target.value)
-    changes?.setField("reviewInfo", "startDate", 
-      e.target.value)
-  }}
-  onBlur={(e) => {
-    changes?.setField("reviewInfo", "startDate", 
-      e.target.value)
-  }}
-  className={`w-full h-9 border border-slate-300 
-    rounded px-2 text-sm bg-white 
-    ${toIsoDate(s?.croStart || "") ? 'has-value' : ''}`}
-/>
+<div className="flex flex-col gap-1">
+  <label className="text-xs text-slate-500 font-medium 
+    uppercase tracking-wider">REVIEWER EMAIL</label>
+  <input
+    className="w-full h-9 border border-slate-200 
+      rounded px-2 text-sm bg-slate-100 
+      text-slate-500 cursor-not-allowed"
+    value={a?.reviewerEmail ?? ""}
+    readOnly
+  />
+</div>
 
-Why this works:
-- defaultValue lets the browser manage display state
-- key={toIsoDate(...)} forces remount when entering 
-  edit mode so the input starts with the correct value
-- classList.toggle('has-value') makes text visible 
-  when user selects a date (overrides globals.css rule)
-- onBlur as fallback for browsers that fire blur 
-  instead of change on date selection
+Apply same pattern for MANAGER EMAIL using 
+a?.managerEmail.
 
-Apply this exact pattern to all 9 fields replacing 
-their respective values and setField names.
+FIX 2 — Sample ID and Review ID always read-only
+Same approach — always render as disabled inputs 
+regardless of isEditing:
 
-No backend changes. Show exact before/after 
-for one field as confirmation.
+Find Sample ID and Review ID Field components.
+Replace with hardcoded read-only inputs using 
+the same disabled styling as Fix 1.
+Use d?.sampleId for Sample ID value and 
+ri?.reviewId (or equivalent) for Review ID value.
+
+FIX 3 — Appeal submit clears Reconsideration values
+When Appeal modal submits via saveReview, it sends 
+a reviewInfo payload. Check if this payload includes 
+reconsideration fields set to empty/null — if so, 
+it overwrites existing reconsideration data.
+
+Read the Appeal modal submit handler and show 
+the exact saveReview payload.
+
+Fix: The Appeal modal submit should ONLY include 
+appeal fields in its payload — never include 
+reconsideration fields:
+
+saveReview({
+  reviewInfo: {
+    change: "Upsert",
+    data: {
+      appeal: apAppealed,
+      appealDate: apDateDisplay,
+      appealDescription: apDesc,
+      appealDecision: apDecision,
+      appealDecisionRationale: apRationale
+      // NO reconsideration fields here
+    }
+  }
+})
+
+Similarly verify Reconsideration submit does NOT 
+include appeal fields in its payload.
+
+FIX 4 — All fields mandatory on both modal forms
+Before calling saveReview in both the Reconsideration 
+and Appeal modal submit handlers, add validation:
+
+const validateReconsideration = (): string | null => {
+  if (!rcReconsidered) return "Reconsideration 
+    checkbox must be checked"
+  if (!rcDate) return "Request Date is required"
+  if (!rcDesc?.trim()) return "Description is required"
+  if (!rcDecision) return "Decision is required"
+  if (!rcRationale?.trim()) return 
+    "Decision Rationale is required"
+  return null
+}
+
+If validation fails:
+- Show the error message inside the modal 
+  (add a state: const [modalError, setModalError] 
+  = useState<string | null>(null))
+- Do NOT call saveReview
+- Display the error above the Submit button:
+  {modalError && (
+    <div className="text-sm text-red-600 mb-2">
+      {modalError}
+    </div>
+  )}
+
+Apply same validation pattern for Appeal modal 
+using ap* state variables.
+Clear modalError when modal is closed.
+
+FIX 5 — RECONSIDERED, APPEALED, RECONSIDERATION 
+DECISION, APPEALED DECISION always disabled in 
+Review Status section
+These 4 fields should always be read-only in the 
+Review Info page — they can only be updated via 
+the Reconsideration and Appeal sub-forms.
+
+Find these 4 fields in the Review Status grid.
+For checkboxes (RECONSIDERED, APPEALED): ensure 
+disabled prop is always true regardless of isEditing.
+For text fields (RECONSIDERATION DECISION, 
+APPEALED DECISION): always render as read-only 
+disabled inputs with disabled styling:
+  className="w-full h-9 border border-slate-200 
+    rounded px-2 text-sm bg-slate-100 
+    text-slate-500 cursor-not-allowed"
+  readOnly
+
+Show exact before/after for each fix.
+No backend changes.
