@@ -1,64 +1,257 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+Read AGENTS.md and UI-PATTERNS.md. Analyzed current code and implemented the requested date inputs in edit mode for 9 fields in ReviewInfoSection.tsx, matching the Reconsideration modal date input pattern.
 
-Only modify:
-frontend/src/app/review/[ecif]/review-info/components/
-sections/ReviewInfoSection.tsx
+Findings before changes
 
-Add date picker inputs (type="date") in edit mode 
-for these 9 fields, matching the exact pattern used 
-for the Reconsideration modal date input.
+1) Current Field JSX for each of the 9 fields
+- CRO START
+  &lt;Field label="CRO START" value={s?.croStart ?? ""} /&gt;
 
-Before making changes, read the file and show:
-1. Current Field JSX for each of these 9 fields:
-   CRO START, SAMPLE DATE, CRO COMPLETE, DISTRIBUTED,
-   FINALIZED, INITIAL APPROVAL, MGR APPROVAL,
-   PRIOR REVIEW DATE, SECOND REVIEW DATE
-2. What section and field name does changes.setField 
-   use for each? (check useReviewInfo.ts save mappings)
-3. How does fmtDate format dates? 
-   (e.g. "4/1/2026" or "2026-04-01"?)
+- SAMPLE DATE
+  &lt;Field label="Sample Date" value={d?.sampleDate ?? ""} section="reviewInfo" name="sampleDate" /&gt;
 
-Then for each of the 9 fields, replace the Field 
-component with this conditional pattern:
+- CRO COMPLETE
+  &lt;Field label="CRO COMPLETE" value={s?.croComplete ?? ""} /&gt;
 
-{isEditing ? (
-  <div className="flex flex-col gap-1">
-    <label className="text-xs text-slate-500 font-medium 
-      uppercase tracking-wider">FIELD LABEL</label>
-    <input
-      type="date"
-      value={dateValue || ""}
-      onChange={(e) => {
-        changes?.setField("reviewInfo", "fieldName", 
-          e.target.value)
-      }}
-      className={`w-full h-9 border border-slate-300 
-        rounded px-2 text-sm bg-white
-        ${dateValue ? 'has-value' : ''}`}
-    />
-  </div>
-) : (
-  <Field label="FIELD LABEL" 
-    value={s?.fieldName ?? ""} />
-)}
+- DISTRIBUTED
+  &lt;Field label="DISTRIBUTED" value={s?.distributed ?? ""} /&gt;
 
-Important: type="date" requires YYYY-MM-DD format.
-If the current values come from fmtDate() as 
-"M/D/YYYY", convert them for the value prop using 
-a helper function:
+- FINALIZED
+  &lt;Field label="FINALIZED" value={s?.finalized ?? ""} /&gt;
 
-const toIsoDate = (display: string): string => {
-  if (!display) return ""
-  const d = new Date(display)
-  if (isNaN(d.getTime())) return ""
-  return d.toISOString().split("T")[0]
-}
+- INITIAL APPROVAL
+  &lt;Field label="INITIAL APPROVAL" value={s?.initialApproval ?? ""} /&gt;
 
-Use: value={toIsoDate(s?.croStart || "")}
+- MGR APPROVAL
+  &lt;Field label="MGR APPROVAL" value={s?.mgrApproval ?? ""} /&gt;
 
-Apply this pattern to all 9 fields.
-Use the correct changes.setField field names 
-for each field from the save mappings.
+- PRIOR REVIEW DATE
+  &lt;Field label="PRIOR REVIEW DATE" value={s?.priorReviewDate ?? ""} /&gt;
 
-Show exact before/after for each of the 9 fields.
-No backend changes.
+- SECOND REVIEW DATE
+  &lt;Field label="SECOND REVIEW DATE" value={s?.secondReviewDate ?? ""} /&gt;
+
+2) changes.setField mappings (from useReviewInfo.ts save mappings)
+- CRO START → reviewInfo.startDate (s.croStart comes from review.startDate)
+- SAMPLE DATE → reviewInfo.sampleDate (d.sampleDate comes from review.sampleDate)
+- CRO COMPLETE → reviewInfo.endDate (s.croComplete comes from review.endDate)
+- DISTRIBUTED → reviewInfo.distributedDate (s.distributed comes from review.distributedDate)
+- FINALIZED → reviewInfo.finalizedDate (s.finalized comes from review.finalizedDate)
+- INITIAL APPROVAL → reviewInfo.initialApproval (s.initialApproval comes from review.initialApproval)
+- MGR APPROVAL → reviewInfo.approvalDate (s.mgrApproval comes from review.approvalDate)
+- PRIOR REVIEW DATE → reviewInfo.priorReviewDate (s.priorReviewDate comes from review.priorReviewDate)
+- SECOND REVIEW DATE → reviewInfo.secondReviewDate (s.secondReviewDate comes from review.secondReviewDate)
+
+3) How fmtDate formats dates
+- In useReviewInfo.ts, fmtDate returns d.toLocaleDateString("en-US"), e.g., "4/1/2026" (M/D/YYYY). This is not ISO and must be converted to YYYY-MM-DD for type="date".
+
+Implementation
+
+- Added helper near the top of ReviewInfoSection.tsx:
+  const toIsoDate = (display: string): string =&gt; {
+    if (!display) return ""
+    const d = new Date(display)
+    if (isNaN(d.getTime())) return ""
+    return d.toISOString().split("T")[0]
+  }
+
+- Replaced Field with conditional pattern in edit mode using type="date", value converted via toIsoDate, and onChange calling changes.setField("reviewInfo", fieldName, e.target.value) for each field. Non-edit mode continues to render the original Field.
+
+Exact before/after for each field
+
+A) CRO START
+- Before:
+  &lt;Field label="CRO START" value={s?.croStart ?? ""} /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;CRO START&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(s?.croStart || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "startDate", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(s?.croStart || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="CRO START" value={s?.croStart ?? ""} /&gt;
+  )}
+
+B) SAMPLE DATE
+- Before:
+  &lt;Field label="Sample Date" value={d?.sampleDate ?? ""} section="reviewInfo" name="sampleDate" /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;SAMPLE DATE&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(d?.sampleDate || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "sampleDate", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(d?.sampleDate || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="Sample Date" value={d?.sampleDate ?? ""} section="reviewInfo" name="sampleDate" /&gt;
+  )}
+
+C) CRO COMPLETE
+- Before:
+  &lt;Field label="CRO COMPLETE" value={s?.croComplete ?? ""} /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;CRO COMPLETE&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(s?.croComplete || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "endDate", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(s?.croComplete || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="CRO COMPLETE" value={s?.croComplete ?? ""} /&gt;
+  )}
+
+D) DISTRIBUTED
+- Before:
+  &lt;Field label="DISTRIBUTED" value={s?.distributed ?? ""} /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;DISTRIBUTED&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(s?.distributed || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "distributedDate", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(s?.distributed || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="DISTRIBUTED" value={s?.distributed ?? ""} /&gt;
+  )}
+
+E) FINALIZED
+- Before:
+  &lt;Field label="FINALIZED" value={s?.finalized ?? ""} /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;FINALIZED&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(s?.finalized || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "finalizedDate", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(s?.finalized || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="FINALIZED" value={s?.finalized ?? ""} /&gt;
+  )}
+
+F) INITIAL APPROVAL
+- Before:
+  &lt;Field label="INITIAL APPROVAL" value={s?.initialApproval ?? ""} /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;INITIAL APPROVAL&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(s?.initialApproval || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "initialApproval", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(s?.initialApproval || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="INITIAL APPROVAL" value={s?.initialApproval ?? ""} /&gt;
+  )}
+
+G) MGR APPROVAL
+- Before:
+  &lt;Field label="MGR APPROVAL" value={s?.mgrApproval ?? ""} /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;MGR APPROVAL&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(s?.mgrApproval || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "approvalDate", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(s?.mgrApproval || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="MGR APPROVAL" value={s?.mgrApproval ?? ""} /&gt;
+  )}
+
+H) PRIOR REVIEW DATE
+- Before:
+  &lt;Field label="PRIOR REVIEW DATE" value={s?.priorReviewDate ?? ""} /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;PRIOR REVIEW DATE&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(s?.priorReviewDate || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "priorReviewDate", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(s?.priorReviewDate || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="PRIOR REVIEW DATE" value={s?.priorReviewDate ?? ""} /&gt;
+  )}
+
+I) SECOND REVIEW DATE
+- Before:
+  &lt;Field label="SECOND REVIEW DATE" value={s?.secondReviewDate ?? ""} /&gt;
+- After:
+  {isEditing ? (
+    &lt;div className="flex flex-col gap-1"&gt;
+      &lt;label className="text-xs text-slate-500 font-medium uppercase tracking-wider"&gt;SECOND REVIEW DATE&lt;/label&gt;
+      &lt;input
+        type="date"
+        value={toIsoDate(s?.secondReviewDate || "")}
+        onChange={(e) =&gt; {
+          changes?.setField("reviewInfo", "secondReviewDate", e.target.value)
+        }}
+        className={`w-full h-9 border border-slate-300 rounded px-2 text-sm bg-white
+        ${toIsoDate(s?.secondReviewDate || "") ? 'has-value' : ''}`}
+      /&gt;
+    &lt;/div&gt;
+  ) : (
+    &lt;Field label="SECOND REVIEW DATE" value={s?.secondReviewDate ?? ""} /&gt;
+  )}
+
+Notes
+- All 9 fields now use type="date" in edit mode with ISO yyyy-MM-dd values via toIsoDate, matching the Reconsideration modal input pattern.
+- Non-edit mode preserves the original Field display for each.
+- The changes.setField calls use the exact field names from the save mappings in useReviewInfo.ts.
+- No backend changes were made.
+
+Modified file
+- frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx — updated with helper and 9 date inputs as described above.
