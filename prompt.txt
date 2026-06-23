@@ -1,114 +1,14 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+https://Chandra-Shivam:
 
-Only modify:
-frontend/src/app/review/[ecif]/review-info/components/
-sections/ReviewInfoSection.tsx
+========================
+ghp_
+========================
+CSK1a03UcuWOKUBGZ2Zaqd
+========================
+PXBqQlMD09TAHy
+==
+==
 
-FIX 1 — Submitting one form clears the other's values
-Root cause: saveReview does a full overwrite. 
-When Appeal saves without reconsideration fields, 
-they get cleared on the backend.
-
-Fix: Each modal must include ALL current effective 
-challenge fields in its save payload — both its own 
-updated values AND the preserved values from the 
-other form.
-
-Update Reconsideration submit payload:
-await saveReview({
-  ...existing ecif/reviewId fields...,
-  reviewInfo: {
-    change: "Upsert",
-    data: {
-      // Updated reconsideration values
-      reconsideration: rcReconsidered,
-      reconsiderationDate: rcDate,
-      reconsiderationDescription: rcDesc,
-      reconsiderationDecision: rcDecision,
-      reconsiderationRationale: rcRationale,
-      // Preserve current appeal values from ec
-      appeal: ec?.appealed ?? false,
-      appealDate: ec?.appealDate ?? null,
-      appealDescription: ec?.appealDescription ?? null,
-      appealDecision: ec?.appealDecision ?? null,
-      appealDecisionRationale: 
-        ec?.appealDecisionRationale ?? null,
-    }
-  }
-})
-
-Update Appeal submit payload:
-await saveReview({
-  ...existing ecif/reviewId fields...,
-  reviewInfo: {
-    change: "Upsert",
-    data: {
-      // Updated appeal values
-      appeal: apAppealed,
-      appealDate: apDate,
-      appealDescription: apDesc,
-      appealDecision: apDecision,
-      appealDecisionRationale: apRationale,
-      // Preserve current reconsideration values from ec
-      reconsideration: ec?.reconsidered ?? false,
-      reconsiderationDate: 
-        ec?.reconsiderationDate ?? null,
-      reconsiderationDescription: 
-        ec?.reconsiderationDescription ?? null,
-      reconsiderationDecision: 
-        ec?.reconsiderationDecision ?? null,
-      reconsiderationRationale: 
-        ec?.reconsiderationRationale ?? null,
-    }
-  }
-})
-
-Check what property names ec exposes for these 
-fields and use the correct names from the 
-effectiveChallenge object.
-
-FIX 2 — Reviewer/Manager email not updating 
-when dropdown changes
-
-Root cause: The read-only email inputs display 
-a?.reviewerEmail (server data) but the dropdown 
-change updates selectedReviewerEmail (local state).
-They are not connected.
-
-Fix: Change both email inputs to display the local 
-state variables instead of server data:
-
-BEFORE:
-<input
-  className="... cursor-not-allowed"
-  value={a?.reviewerEmail ?? ""}
-  readOnly
-/>
-
-AFTER:
-<input
-  className="... cursor-not-allowed"
-  value={selectedReviewerEmail}
-  readOnly
-/>
-
-BEFORE (Manager Email):
-<input
-  className="... cursor-not-allowed"
-  value={a?.managerEmail ?? ""}
-  readOnly
-/>
-
-AFTER:
-<input
-  className="... cursor-not-allowed"
-  value={selectedManagerEmail}
-  readOnly
-/>
-
-selectedReviewerEmail and selectedManagerEmail 
-are already defined as local state in this component 
-and are updated when the dropdowns change.
-
-Show exact before/after for both fixes.
-No backend changes.
+@github.com
+=========
+/Chandra-Shivam
