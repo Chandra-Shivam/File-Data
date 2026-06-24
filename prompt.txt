@@ -1,16 +1,38 @@
-https://Chandra-Shivam:
+Read AGENTS.md and UI-PATTERNS.md first.
 
-========================
-ghp_
-========================
-psVWyWGDD4nZGn8sKQvqfn
-========================
-IutNcU5618Njhb
-==
-test
-==
-testtt
-==
-@github.com
-=========
-/Chandra-Shivam
+Before making any changes, read and report:
+
+1. backend/src/Casrr.Api/Controllers/
+   ReviewController.cs
+   - How is the current user identified? 
+     Show the code that resolves emp/employee 
+     number from the auth principal
+   - What is passed to GetReviewQueuePageAsync?
+
+2. backend/src/Casrr.Infrastructure/SqlServer/
+   SqlReviewRepository.cs — GetQueuePageAsync
+   - Show the complete SQL query that returns 
+     queue rows
+   - What column links the review to the reviewer?
+     (e.g. CRO_name, CRO_email, Reviewer_id)
+
+3. The CAS Users table structure 
+   (already known from earlier work):
+   CasUser has: id, name, email, manager, 
+   managerEmail, role
+   
+   Confirm: Is the manager field in CasUsers 
+   a name string or an ID/email?
+   What value does it store — 
+   e.g. "Geoffrey Houlditch" or an employee number?
+
+4. frontend/src/app/review-queue/page.tsx
+   - Show the My View dropdown and the 
+     getReviewQueuePage service call
+   - What parameters does getReviewQueuePage 
+     currently accept?
+
+5. frontend/src/services/api/reviews.ts
+   - Show the getReviewQueuePage function signature
+
+Report findings only. No changes yet.
