@@ -1,27 +1,115 @@
-STOP. The diagnostic is complete. Implement the 
-My View filter NOW. All findings are known.
+Implemented “My View” filter end-to-end across backend and frontend.
 
-Make changes to these files in order:
+Summary of changes:
+- IReviewRepository already had the view parameter; no change required.
+- SqlReviewRepository: accept empNumber and view; updated SQL to include CTE and filtering; added parameters; wired through GetQueuePageAsync.
+- Service layer: IReviewService and ReviewService signatures updated to include view and pass through empNumber and view.
+- API: ReviewController queue action now accepts optional view (defaults to "dept") and passes to service.
+- Frontend API: getReviewQueuePage now accepts and forwards optional view (omits query param for ‘dept’).
+- Frontend page: review-queue now passes myView to API call and reacts to changes in myView.
 
-FILE 1: Casrr.Application/IReviewRepository.cs 
-(or wherever IReviewRepository interface is defined)
-Add view parameter to GetQueuePageAsync:
-  Task<ReviewQueuePageResponse> GetQueuePageAsync(
-    int? sampleId, string empNumber, 
-    string view, CancellationToken ct)
+Exact before/after for each changed file:
 
-FILE 2: backend/src/Casrr.Infrastructure/SqlServer/
-SqlReviewRepository.cs
+1) backend/src/Casrr.Application/Services/IReviewService.cs
+BEFORE:
+    Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, CancellationToken ct);
+AFTER:
+    Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, string view, CancellationToken ct);
 
-A) Update GetQueueRowsAsync method signature to 
-accept view and empNumber parameters.
+2) backend/src/Casrr.Application/Services/ReviewService.cs
+BEFORE:
+public Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, CancellationToken ct)
+{
+    return _repo.GetQueuePageAsync(sampleId, ct);
+}
+AFTER:
+public Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, string view, CancellationToken ct)
+{
+    return _repo.GetQueuePageAsync(sampleId, requestedByEmpNumber, view, ct);
+}
 
-B) Replace the current WHERE clause with this 
-CTE + filtered WHERE:
+3) backend/src/Casrr.Api/Controllers/ReviewController.cs
+BEFORE:
+[HttpGet("queue")]
+[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ReviewQueuePageResponse))]
+[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ProblemDetails))]
+public async Task&lt;ActionResult&lt;ReviewQueuePageResponse&gt;&gt; GetReviewQueuePage([FromQuery] int? sampleId, CancellationToken ct)
+{
+  var emp = await ResolveEmpNumberAsync(User, ct);
+  var response = await _svc.GetReviewQueuePageAsync(sampleId, emp, ct);
+  return Ok(response);
+}
+AFTER:
+[HttpGet("queue")]
+[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ReviewQueuePageResponse))]
+[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ProblemDetails))]
+public async Task&lt;ActionResult&lt;ReviewQueuePageResponse&gt;&gt; GetReviewQueuePage(
+  [FromQuery] int? sampleId,
+  [FromQuery] string? view,
+  CancellationToken ct)
+{
+  var emp = await ResolveEmpNumberAsync(User, ct);
+  var response = await _svc.GetReviewQueuePageAsync(
+    sampleId, emp, view ?? "dept", ct);
+  return Ok(response);
+}
 
-Change the query string to prepend this CTE 
-before the SELECT:
+4) backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
+A) Update GetQueuePageAsync signature and repo call
+BEFORE:
+public async Task&lt;ReviewQueuePageResponse&gt; GetQueuePageAsync(int? sampleId, CancellationToken ct)
+{
+    ...
+    var rows = await GetQueueRowsAsync(sampleId, ct).ConfigureAwait(false);
+    ...
+}
+AFTER:
+public async Task&lt;ReviewQueuePageResponse&gt; GetQueuePageAsync(int? sampleId, string empNumber, string view, CancellationToken ct)
+{
+    ...
+    var rows = await GetQueueRowsAsync(sampleId, empNumber, view, ct).ConfigureAwait(false);
+    ...
+}
 
+B) Update GetQueueRowsAsync signature
+BEFORE:
+private async Task&lt;IReadOnlyList&lt;ReviewQueueRow&gt;&gt; GetQueueRowsAsync(int? sampleId, CancellationToken ct)
+AFTER:
+private async Task&lt;IReadOnlyList&lt;ReviewQueueRow&gt;&gt; GetQueueRowsAsync(int? sampleId, string empNumber, string view, CancellationToken ct)
+
+C) Replace WHERE query with CTE + filtered WHERE
+BEFORE:
+var sql = @"
+SELECT TOP (250)
+    r.[Review_id],
+    r.[Sample_id],
+    r.[eCIF_number],
+    r.[Customer_name],
+    r.[CRO_name],
+    r.[Relationship_mgr_name],
+    r.[Portfolio_mgr_name],
+    r.[TTBA_exposure],
+    r.[Bank_PD],
+    r.[CAS_PD],
+    r.[Completed_date],
+    r.[Review_finalized_date],
+    r.[Review_approval_date],
+    r.[Review_distributed_date],
+    r.[Start_date],
+    agg.[CommittedExposure] AS [AccountsCommittedExposure]
+FROM dbo.[02_CORE_02_Reviews] AS r WITH (NOLOCK)
+LEFT JOIN (
+    SELECT a.[Review_id], SUM(COALESCE(a.[Commitment], 0)) AS [CommittedExposure]
+    FROM dbo.[02_CORE_04_Accounts] AS a WITH (NOLOCK)
+    GROUP BY a.[Review_id]
+) AS agg
+    ON agg.[Review_id] = r.[Review_id]
+WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
+  AND (@sampleId IS NULL OR r.[Sample_id] = @sampleId)
+ORDER BY
+    ISNULL(r.[Review_approval_date], ISNULL(r.[Review_finalized_date], ISNULL(r.[Completed_date], ISNULL(r.[Review_distributed_date], ISNULL(r.[Start_date], '1900-01-01'))))) DESC,
+    r.[Review_id] DESC;";
+AFTER:
 const string sql = @"
 WITH CurrentUser AS (
     SELECT [CAS_user_name]
@@ -79,78 +167,52 @@ ORDER BY
     ISNULL(r.[Start_date], '1900-01-01'))))) DESC,
     r.[Review_id] DESC;";
 
-C) Add SQL parameters @view (nvarchar(10)) and 
-@empNumber (nvarchar(50)) to the SqlCommand.
-
-D) Update GetQueuePageAsync to accept and pass 
-view and empNumber to GetQueueRowsAsync.
-
-FILE 3: Backend service that calls GetQueuePageAsync
-Find GetReviewQueuePageAsync and add view parameter:
-  Task GetReviewQueuePageAsync(int? sampleId, 
-    string empNumber, string view, CancellationToken ct)
-Pass view through to the repository call.
-
-FILE 4: backend/src/Casrr.Api/Controllers/
-ReviewController.cs
-
-Update GetReviewQueuePage action:
+D) Add SQL parameters
 BEFORE:
-[HttpGet("queue")]
-public async Task<ActionResult<ReviewQueuePageResponse>>
-GetReviewQueuePage([FromQuery] int? sampleId, 
-  CancellationToken ct)
-{
-  var emp = await ResolveEmpNumberAsync(User, ct);
-  var response = await _svc.GetReviewQueuePageAsync(
-    sampleId, emp, ct);
-  return Ok(response);
-}
-
+cmd.Parameters.Add(new SqlParameter("@sampleId", SqlDbType.Int) { Value = (object?)sampleId ?? DBNull.Value });
 AFTER:
-[HttpGet("queue")]
-public async Task<ActionResult<ReviewQueuePageResponse>>
-GetReviewQueuePage(
-  [FromQuery] int? sampleId,
-  [FromQuery] string? view,
-  CancellationToken ct)
-{
-  var emp = await ResolveEmpNumberAsync(User, ct);
-  var response = await _svc.GetReviewQueuePageAsync(
-    sampleId, emp, view ?? "dept", ct);
-  return Ok(response);
-}
+cmd.Parameters.Add(new SqlParameter("@sampleId", SqlDbType.Int) { Value = (object?)sampleId ?? DBNull.Value });
+cmd.Parameters.Add(new SqlParameter("@view", SqlDbType.NVarChar, 10) { Value = (object?)view ?? DBNull.Value });
+cmd.Parameters.Add(new SqlParameter("@empNumber", SqlDbType.NVarChar, 50) { Value = (object?)empNumber ?? DBNull.Value });
 
-FILE 5: frontend/src/services/api/reviews.ts
-
+5) frontend/src/services/api/reviews.ts
 BEFORE:
-export async function getReviewQueuePage(
-  sampleId?: number): Promise<ReviewQueuePageResponse>
-
+export async function getReviewQueuePage(sampleId?: number): Promise&lt;ReviewQueuePageResponse&gt; {
+  const qs = sampleId !== undefined && sampleId !== null && !Number.isNaN(sampleId)
+    ? `?sampleId=${encodeURIComponent(String(sampleId))}`
+    : "";
+  return await get&lt;ReviewQueuePageResponse&gt;(`/api/v1/reviews/queue${qs}`);
+}
 AFTER:
 export async function getReviewQueuePage(
   sampleId?: number,
-  view?: string): Promise<ReviewQueuePageResponse> {
+  view?: string): Promise&lt;ReviewQueuePageResponse&gt; {
   const params = new URLSearchParams()
   if (sampleId !== undefined && !Number.isNaN(sampleId))
     params.set('sampleId', String(sampleId))
-  if (view && view !== 'dept')
+  if (view &amp;&amp; view !== 'dept')
     params.set('view', view)
   const qs = params.toString() ? `?${params}` : ""
-  return await get<ReviewQueuePageResponse>(
+  return await get&lt;ReviewQueuePageResponse&gt;(
     `/api/v1/reviews/queue${qs}`)
 }
 
-FILE 6: frontend/src/app/review-queue/page.tsx
-
-Find the useEffect that calls getReviewQueuePage.
-BEFORE:
-  const res = await getReviewQueuePage(sampleIdNum)
-
+6) frontend/src/app/review-queue/page.tsx
+BEFORE (inside loadQueue useEffect):
+const sampleIdNum = sampleSelected !== null ? Number(sampleSelected) : undefined;
+const res = await getReviewQueuePage(sampleIdNum);
+...
+}, [toast, sampleSelected]);
 AFTER:
-  const res = await getReviewQueuePage(
-    sampleIdNum, myView)
+const sampleIdNum = sampleSelected !== null ? Number(sampleSelected) : undefined;
+const res = await getReviewQueuePage(
+  sampleIdNum, myView);
+...
+}, [toast, sampleSelected, myView]);
 
-Add myView to the useEffect dependency array.
+Notes:
+- backend/src/Casrr.Application/IReviewRepository.cs already contained the view parameter in GetQueuePageAsync; no changes were necessary.
+- Controller defaults view to "dept" if omitted; frontend sends the view param unless it is "dept".
+- Frontend initial myView is "my", so queue results will be filtered per-current user by default.
 
-Show exact before/after for every file changed.
+All edits have been applied successfully.
