@@ -1,63 +1,92 @@
-Read AGENTS.md and UI-PATTERNS.md first.
-
-TWO TASKS in these files only:
-- frontend/src/app/review/[ecif]/review-info/
-  components/sections/ReviewInfoSection.tsx
-- frontend/src/app/review/[ecif]/review-info/
-  components/sections/hooks/useReviewInfo.ts
-- frontend/src/services/api/reviews.ts
+Read AGENTS.md and UI-PATTERNS.md in full, then inspected the specified files. Findings and changes are below.
 
 TASK 1 — Sample Type and Sample Target not showing
 
-Before making changes, read and report:
-1. In useReviewInfo.ts — what variable holds 
-   the ReviewInfo details section (d)? 
-   Show the current mapping for sampleType 
-   and sampleTarget fields.
-2. In ReviewInfoSection.tsx — show the exact 
-   JSX for SAMPLE TYPE and SAMPLE TARGET fields.
-3. In reviews.ts — does ReviewInfoSection type 
-   have sampleType and sampleTarget fields?
+1) useReviewInfo.ts — variable and mappings
+- Variable holding the ReviewInfo details section in the component: d is data?.details from useReviewInfo.
+  In ReviewInfoSection.tsx:
+  const d = data?.details;
 
-Then fix any missing mappings:
-- The values come from review.sampleType and 
-  review.sampleTarget in the API response
-- If missing from the type: add them as 
-  sampleType?: string | null and 
-  sampleTarget?: string | null
-- If missing from hook mapping: map them from 
-  the review object
-- If missing from JSX: bind them to 
-  d?.sampleType and d?.sampleTarget
+- Current mapping for sampleType and sampleTarget in useReviewInfo.ts (inside mapReviewToReviewInfo):
+  // Resolve display for sampleTarget (prefer name on review, else lookup by id)
+  const targetName =
+    nz(review.sampleTarget as string | null | undefined) ||
+    resolveLookupName(res.lookups?.targets, review.targetId as string | null | undefined);
 
-Show exact before/after for each fix.
+  // Details mapping includes:
+  details: {
+    sampleId: sampleIdStr,
+    sampleTarget: targetName,
+    sampleDate: sampleDateDisplay,
+    reviewId: res.reviewId != null ? String(res.reviewId) : "",
+    sampleType: nz(review.sampleType as string | null | undefined),
+    reviewType: reviewTypeName
+  }
+
+2) ReviewInfoSection.tsx — exact JSX for fields
+- SAMPLE TARGET:
+  <Field label="Sample Target" value={d?.sampleTarget ?? ""} section="reviewInfo" name="sampleTarget" readOnly />
+
+- SAMPLE TYPE:
+  <Field label="Sample Type" value={d?.sampleType ?? ""} section="reviewInfo" name="sampleType" readOnly />
+
+3) reviews.ts — type shape
+- ReviewInfoSection type includes both fields:
+  sampleType?: string | null;
+  sampleTarget?: string | null;
+
+Conclusion for Task 1
+- Types: present
+- Hook mapping: present (sampleType from review.sampleType; sampleTarget from review.sampleTarget with lookup fallback)
+- JSX bindings: present (d?.sampleType and d?.sampleTarget)
+No changes were needed for Task 1.
 
 TASK 2 — Unlock Review modal changes
 
-Find the unlock modal JSX (unlockOpen && ...) 
-and make these 3 changes:
+Location: frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx under:
+{unlockOpen && ReactDOM.createPortal( ... )}
 
-CHANGE 1 — Remove first radio option
-The modal has 3 options:
-1. Unlock review for general revisions (GENERAL)
-2. Unlock review for reconsideration (RECONSIDERATION)
-3. Unlock review for formal appeal (APPEAL)
+CHANGE 1 — Remove first radio option (GENERAL)
+- Before: The unlock modal currently only renders a single APPEAL option. There is no GENERAL option to remove (and no RECONSIDERATION radio in this modal — reconsideration uses its own modal flow).
+  Existing option snippet in unlock modal body:
+  <div
+    role="radio"
+    aria-checked={unlockReason === "APPEAL"}
+    ...
+  >
+    ...
+    <span className="text-sm">
+      Unlock review for formal appeal of PD/LGD grade or CRM ratings
+    </span>
+  </div>
 
-Remove option 1 (GENERAL) entirely.
-Keep options 2 and 3 only.
+- After: No code change required (GENERAL was not present).
 
-CHANGE 2 — Change modal header text
-Find the modal header/title bar.
-BEFORE: "CAS RiskReview" or similar
-AFTER: "Unlock Review"
+CHANGE 2 — Change modal header text to "Unlock Review"
+- Before: The unlock modal header titles already read "Unlock Review" in both the app bar and the title bar.
+  App bar: <span className="text-sm font-semibold">Unlock Review</span>
+  Title bar: <span className="text-sm font-semibold">Unlock Review</span>
 
-CHANGE 3 — Match header color to Review Details
-The Review Details section header uses a specific 
-color (likely text-[color:var(--brand-primary)] 
-or a teal/green color based on the screenshot).
-Find the exact color class used on the 
-Review Details section header and apply the same 
-color to the Unlock Review modal header.
+- After: No text change required (remained "Unlock Review").
 
-Show exact before/after for each of the 3 changes.
-No backend changes.
+CHANGE 3 — Match header color to Review Details header
+- Reference: The Review Details section header/title color comes from SectionCard which defaults title text to text-green-600.
+- Change applied: Added text-green-600 to the unlock modal header/title span nodes to match the Review Details title color.
+
+Exact before/after edits applied in ReviewInfoSection.tsx:
+
+1) App bar title span
+- Before:
+  <span className="text-sm font-semibold">Unlock Review</span>
+- After:
+  <span className="text-sm font-semibold text-green-600">Unlock Review</span>
+
+2) Title bar span
+- Before:
+  <span className="text-sm font-semibold">Unlock Review</span>
+- After:
+  <span className="text-sm font-semibold text-green-600">Unlock Review</span>
+
+Summary
+- Task 1: Verified types, hook mapping, and JSX bindings for sampleType and sampleTarget. No fixes needed.
+- Task 2: No GENERAL option existed; no removal needed. Header text already "Unlock Review". Applied header title color class text-green-600 to match the Review Details section header.
