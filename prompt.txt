@@ -1,79 +1,38 @@
-Summary
-- No code changes were required. The repository already reflects all four requested steps. Therefore, there are no before/after diffs to present. Below are precise confirmations with current code excerpts and signatures.
+Read AGENTS.md and UI-PATTERNS.md first.
+Frontend only. No backend changes.
 
-STEP 1 — Revert the SQL in SqlReviewRepository.cs
-- File: backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
-- Method: GetQueueRowsAsync(int? sampleId, CancellationToken ct)
-- Current SQL WHERE clause matches requested revert:
-  WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
-    AND (@sampleId IS NULL OR r.[Sample_id] = @sampleId)
-- There is no CTE or “view filter” in the query.
-- No @view or @empNumber parameters are present in the SqlCommand:
-  cmd.Parameters.Add(new SqlParameter("@sampleId", SqlDbType.Int) { Value = (object?)sampleId ?? DBNull.Value });
+FILE 1: frontend/src/services/api/reviews.ts
+1. Remove view parameter from getReviewQueuePage
+2. Add to ReviewQueuePageResponse type:
+   currentUserName?: string
+   teamMemberNames?: string[]
 
-STEP 2 — Add current user + team lookup
-- File: backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
-- Method: GetQueuePageAsync(int? sampleId, string empNumber, CancellationToken ct)
-- After fetching rows, the user lookup query is executed using @empNumber:
-  const string userSql = @"
-  SELECT 
-    cu.[CAS_user_name] AS CurrentUserName,
-    tm.[CAS_user_name] AS TeamMemberName
-  FROM dbo.[03_LIBRARY_05_CAS_Users] cu WITH (NOLOCK)
-  LEFT JOIN dbo.[03_LIBRARY_05_CAS_Users] tm 
-    WITH (NOLOCK)
-    ON tm.[CAS_user_manager] = cu.[CAS_user_name]
-  WHERE cu.[CAS_user_id] = @empNumber;";
-  ...
-  cmdUsers.Parameters.Add(new SqlParameter("@empNumber", SqlDbType.NVarChar, 50) { Value = (object?)empNumber ?? DBNull.Value });
-- Results are read into:
-  - currentUserName: first row’s CurrentUserName
-  - teamMemberNames: all non-null TeamMemberName values
-- The response includes these fields:
-  return new ReviewQueuePageResponse
-  {
-      Rows = rows,
-      ProgressCounts = progress,
-      CurrentUserName = currentUserName,
-      TeamMemberNames = teamMemberNames,
-      Samples = samples
-  };
+FILE 2: frontend/src/app/review-queue/page.tsx
+1. Remove view from getReviewQueuePage call
+2. Remove myView from useEffect dependencies
+3. After loading, store from response:
+   const [currentUserName, setCurrentUserName] = 
+     useState<string>("")
+   const [teamMemberNames, setTeamMemberNames] = 
+     useState<string[]>([])
+   
+   On load:
+   setCurrentUserName(res.currentUserName ?? "")
+   setTeamMemberNames(res.teamMemberNames ?? [])
 
-STEP 3 — Add to ReviewQueuePageResponse (Casrr.Domain)
-- File: backend/src/Casrr.Domain/ReviewQueue.cs
-- Type: ReviewQueuePageResponse
-- Current properties already include:
-  public string CurrentUserName { get; init; } = "";
-  public IReadOnlyList&lt;string&gt; TeamMemberNames { get; init; } = Array.Empty&lt;string&gt;();
+4. Filter rows client-side based on myView.
+   Add this after rows state:
 
-STEP 4 — Remove view parameter from the chain
-- GetQueueRowsAsync (SqlReviewRepository)
-  Signature: private async Task&lt;IReadOnlyList&lt;ReviewQueueRow&gt;&gt; GetQueueRowsAsync(int? sampleId, CancellationToken ct)
-  - No view parameter.
-- GetQueuePageAsync (IReviewRepository and SqlReviewRepository)
-  IReviewRepository: Task&lt;ReviewQueuePageResponse&gt; GetQueuePageAsync(int? sampleId, string empNumber, CancellationToken ct);
-  SqlReviewRepository: public async Task&lt;ReviewQueuePageResponse&gt; GetQueuePageAsync(int? sampleId, string empNumber, CancellationToken ct)
-  - No view parameter. empNumber is retained for user lookup as required.
-- IReviewService.GetReviewQueuePageAsync
-  File: backend/src/Casrr.Application/Services/IReviewService.cs
-  Signature: Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, CancellationToken ct);
-  - No view parameter.
-- ReviewService.GetReviewQueuePageAsync
-  File: backend/src/Casrr.Application/Services/ReviewService.cs
-  Implementation calls repository without a view parameter:
-  return _repo.GetQueuePageAsync(sampleId, requestedByEmpNumber, ct);
-- ReviewController
-  File: backend/src/Casrr.Api/Controllers/ReviewController.cs
-  Action signature:
-  public async Task&lt;ActionResult&lt;ReviewQueuePageResponse&gt;&gt; GetReviewQueuePage([FromQuery] int? sampleId, CancellationToken ct)
-  - No [FromQuery] string? view present.
-  - Calls service without view:
-    var response = await _svc.GetReviewQueuePageAsync(sampleId, emp, ct);
+   const filteredRows = rows.filter(row => {
+     if (myView === 'dept') return true
+     if (myView === 'my') 
+       return row.reviewer === currentUserName
+     if (myView === 'team') 
+       return teamMemberNames.includes(row.reviewer)
+     return true
+   })
 
-Conclusion
-- All steps are already satisfied in the current codebase:
-  - Step 1: SQL is reverted (no CTE/view filter; WHERE clause matches target; no @view/@empNumber parameters).
-  - Step 2: Current user + team lookup added and response fields populated.
-  - Step 3: Domain model includes the two new properties with correct defaults.
-  - Step 4: view parameter fully removed from all layers; empNumber preserved for user lookup.
-- No files were modified; thus there are no before/after diffs.
+5. Replace rows with filteredRows in the 
+   DataTable component.
+
+Show exact before/after. No backend changes.
