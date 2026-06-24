@@ -1,38 +1,166 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+Report of findings after reading AGENTS.md and UI-PATTERNS.md first. No changes made.
 
-Before making any changes, read and report:
+1) backend/src/Casrr.Api/Controllers/ReviewController.cs
+- How is the current user identified? Code that resolves emp/employee number from the auth principal (implemented in BaseTemplateController.cs and called from ReviewController):
+  protected async Task<string> ResolveEmpNumberAsync(ClaimsPrincipal? user, CancellationToken ct)
+  {
+      try
+      {
+          var me = _graphUserInfoProvider is null ? null : await _graphUserInfoProvider.TryGetGraphMeAsync(user ?? HttpContext?.User!, ct);
 
-1. backend/src/Casrr.Api/Controllers/
-   ReviewController.cs
-   - How is the current user identified? 
-     Show the code that resolves emp/employee 
-     number from the auth principal
-   - What is passed to GetReviewQueuePageAsync?
+          if (me is not null)
+          {
+              // Prefer explicit EmployeeId
+              if (!string.IsNullOrWhiteSpace(me.EmployeeId))
+                  return me.EmployeeId!.Trim();
 
-2. backend/src/Casrr.Infrastructure/SqlServer/
-   SqlReviewRepository.cs — GetQueuePageAsync
-   - Show the complete SQL query that returns 
-     queue rows
-   - What column links the review to the reviewer?
-     (e.g. CRO_name, CRO_email, Reviewer_id)
+              // Fallback: SAM that looks like an Emp #
+              var sam = me.OnPremisesSamAccountName;
+              if (!string.IsNullOrWhiteSpace(sam))
+              {
+                  var s = sam!.Trim();
+                  if (LooksLikeEmpNumber(s))
+                      return s;
+              }
+          }
+      }
+      catch
+      {
+          // Swallow and continue to claim-based heuristics
+      }
 
-3. The CAS Users table structure 
-   (already known from earlier work):
-   CasUser has: id, name, email, manager, 
-   managerEmail, role
-   
-   Confirm: Is the manager field in CasUsers 
-   a name string or an ID/email?
-   What value does it store — 
-   e.g. "Geoffrey Houlditch" or an employee number?
+      // Heuristic claim-based fallback (dev-only)
+      var empId = GetClaimIgnoreCase(user, "employeeid")
+               ?? GetClaimIgnoreCase(user, "employeeId")
+               ?? GetClaimIgnoreCase(user, "extension_EmployeeNumber")
+               ?? GetClaimIgnoreCase(user, "extension_employeeNumber")
+               ?? null;
 
-4. frontend/src/app/review-queue/page.tsx
-   - Show the My View dropdown and the 
-     getReviewQueuePage service call
-   - What parameters does getReviewQueuePage 
-     currently accept?
+      if (!string.IsNullOrWhiteSpace(empId))
+          return empId.Trim();
 
-5. frontend/src/services/api/reviews.ts
-   - Show the getReviewQueuePage function signature
+      var samClaim = GetClaimIgnoreCase(user, "onpremisessamaccountname")
+             ?? GetClaimIgnoreCase(user, "onPremisesSamAccountName")
+             ?? GetClaimIgnoreCase(user, ClaimTypes.Upn)
+             ?? GetClaimIgnoreCase(user, "preferred_username")
+             ?? null;
 
-Report findings only. No changes yet.
+      if (!string.IsNullOrWhiteSpace(samClaim))
+      {
+          var s = samClaim.Trim();
+          if (LooksLikeEmpNumber(s))
+              return s;
+      }
+
+      // Conservative fallback when identity cannot be resolved
+      var devEmp = Environment.GetEnvironmentVariable("Casrr_DEV_EMP");
+      if (!string.IsNullOrWhiteSpace(devEmp))
+          return devEmp.Trim();
+      return "CC058";
+  }
+  protected string ResolveEmpNumber(ClaimsPrincipal? user)
+  {
+      return ResolveEmpNumberAsync(user, CancellationToken.None).GetAwaiter().GetResult();
+  }
+
+- What is passed to GetReviewQueuePageAsync?
+  In ReviewController.GetReviewQueuePage:
+  [HttpGet("queue")]
+  public async Task<ActionResult&lt;ReviewQueuePageResponse&gt;> GetReviewQueuePage([FromQuery] int? sampleId, CancellationToken ct)
+  {
+      var emp = await ResolveEmpNumberAsync(User, ct);
+      var response = await _svc.GetReviewQueuePageAsync(sampleId, emp, ct);
+      return Ok(response);
+  }
+  Passed arguments: sampleId (nullable int from query), emp (resolved employee number string), and ct (CancellationToken).
+
+2) backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs — GetQueuePageAsync
+- Complete SQL query that returns queue rows (used inside GetQueueRowsAsync):
+  SELECT TOP (250)
+      r.[Review_id],
+      r.[Sample_id],
+      r.[eCIF_number],
+      r.[Customer_name],
+      r.[CRO_name],
+      r.[Relationship_mgr_name],
+      r.[Portfolio_mgr_name],
+      r.[TTBA_exposure],
+      r.[Bank_PD],
+      r.[CAS_PD],
+      r.[Completed_date],
+      r.[Review_finalized_date],
+      r.[Review_approval_date],
+      r.[Review_distributed_date],
+      r.[Start_date],
+      agg.[CommittedExposure] AS [AccountsCommittedExposure]
+  FROM dbo.[02_CORE_02_Reviews] AS r WITH (NOLOCK)
+  LEFT JOIN (
+      SELECT a.[Review_id], SUM(COALESCE(a.[Commitment], 0)) AS [CommittedExposure]
+      FROM dbo.[02_CORE_04_Accounts] AS a WITH (NOLOCK)
+      GROUP BY a.[Review_id]
+  ) AS agg
+      ON agg.[Review_id] = r.[Review_id]
+  WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
+    AND (@sampleId IS NULL OR r.[Sample_id] = @sampleId)
+  ORDER BY
+      ISNULL(r.[Review_approval_date], ISNULL(r.[Review_finalized_date], ISNULL(r.[Completed_date], ISNULL(r.[Review_distributed_date], ISNULL(r.[Start_date], '1900-01-01'))))) DESC,
+      r.[Review_id] DESC;
+
+  Mapping (key parts) that derive the Reviewer display:
+  var cro = rdr.IsDBNull(4) ? null : rdr.GetString(4);
+  var rm = rdr.IsDBNull(5) ? null : rdr.GetString(5);
+  var pm = rdr.IsDBNull(6) ? null : rdr.GetString(6);
+  var reviewer = FirstNonEmpty(cro, rm, pm) ?? "";
+
+- What column links the review to the reviewer?
+  The reviewer is derived from name columns in dbo.[02_CORE_02_Reviews]: CRO_name, falling back to Relationship_mgr_name, then Portfolio_mgr_name. It uses display name strings; no reviewer ID or email is used for the queue row linkage in this query.
+
+3) CAS Users table structure (CasUser)
+- Class (backend/src/Casrr.Domain/CasUsers.cs) shows:
+  public sealed class CasUser
+  {
+      public string Id { get; init; } = string.Empty;           // CAS_user_id (Windows/Network ID)
+      public string Name { get; init; } = string.Empty;         // CAS_user_name (display name)
+      public string FirstName { get; init; } = string.Empty;    // CAS_user_first_name
+      public string LastName { get; init; } = string.Empty;     // CAS_user_last_name
+      public string Title { get; init; } = string.Empty;        // CAS_user_title
+      public string Email { get; init; } = string.Empty;        // CAS_user_email
+      public string Manager { get; init; } = string.Empty;      // CAS_user_manager
+      public string ManagerEmail { get; init; } = string.Empty; // CAS_user_manager_email
+      public string Role { get; init; } = string.Empty;         // CAS_user_role
+      public bool Active { get; init; }
+      public bool AdminRights { get; init; }
+      public bool ApprovalRights { get; init; }
+  }
+
+- Confirm manager field meaning:
+  Manager is a string (CAS_user_manager) and there is a separate ManagerEmail string. This indicates Manager stores a display name string (e.g., "Geoffrey Houlditch"), not an employee number or email. Email is stored in ManagerEmail; no employee-number field is present for Manager.
+
+4) frontend/src/app/review-queue/page.tsx
+- My View dropdown (exact markup):
+  <Select
+    size="sm"
+    className="bg-white w-full"
+    value={myView}
+    onChange={(e) => setMyView(e.target.value)}
+  >
+    <option value="my">My View</option>
+    <option value="team">My Team</option>
+    <option value="dept">My Department</option>
+  </Select>
+
+- getReviewQueuePage service call (from useEffect that loads queue):
+  const sampleIdNum = sampleSelected !== null ? Number(sampleSelected) : undefined;
+  const res = await getReviewQueuePage(sampleIdNum);
+
+- What parameters does getReviewQueuePage currently accept?
+  It accepts a single optional parameter: sampleId?: number. When provided, the request is GET /api/v1/reviews/queue?sampleId=...
+
+5) frontend/src/services/api/reviews.ts
+- getReviewQueuePage function signature:
+  export async function getReviewQueuePage(sampleId?: number): Promise&lt;ReviewQueuePageResponse&gt; {
+    const qs = sampleId !== undefined && sampleId !== null && !Number.isNaN(sampleId)
+      ? `?sampleId=${encodeURIComponent(String(sampleId))}`
+      : "";
+    return await get&lt;ReviewQueuePageResponse&gt;(`/api/v1/reviews/queue${qs}`);
+  }
