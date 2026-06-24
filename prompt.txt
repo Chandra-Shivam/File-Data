@@ -1,71 +1,63 @@
-# Task: Store archived blobs in a Year/Month/Day folder structure, auto-creating the container
+Read AGENTS.md and UI-PATTERNS.md first.
 
-## Context
-This is a C# .NET Azure Functions (isolated worker) project that is blob-triggered: an
-Excel file lands in the `originate-landing` container, is processed through a pipeline, and
-the source file is then archived into the `originate-processed` container.
+TWO TASKS in these files only:
+- frontend/src/app/review/[ecif]/review-info/
+  components/sections/ReviewInfoSection.tsx
+- frontend/src/app/review/[ecif]/review-info/
+  components/sections/hooks/useReviewInfo.ts
+- frontend/src/services/api/reviews.ts
 
-Storage access uses **managed identity** (`DefaultAzureCredential`) via the `OrigenateStorage`
-connection — NOT connection strings, NOT `AzureWebJobsStorage`. Do not introduce connection
-strings or `BlobContainerClient` constructed from them.
+TASK 1 — Sample Type and Sample Target not showing
 
-## Goal
-When a blob is archived (i.e. when the file is "created" in the destination container),
-it must be placed inside a date-partitioned folder path:
+Before making changes, read and report:
+1. In useReviewInfo.ts — what variable holds 
+   the ReviewInfo details section (d)? 
+   Show the current mapping for sampleType 
+   and sampleTarget fields.
+2. In ReviewInfoSection.tsx — show the exact 
+   JSX for SAMPLE TYPE and SAMPLE TARGET fields.
+3. In reviews.ts — does ReviewInfoSection type 
+   have sampleType and sampleTarget fields?
 
-```
-<Year>/<MonthFullName>/<DayTwoDigit>/<originalFileName>
-```
+Then fix any missing mappings:
+- The values come from review.sampleType and 
+  review.sampleTarget in the API response
+- If missing from the type: add them as 
+  sampleType?: string | null and 
+  sampleTarget?: string | null
+- If missing from hook mapping: map them from 
+  the review object
+- If missing from JSX: bind them to 
+  d?.sampleType and d?.sampleTarget
 
-Example for 2026-05-05:  `2026/May/05/MyFile.xlsx`
+Show exact before/after for each fix.
 
-Notes on the exact format (follow precisely):
-- Year: numeric 4-digit (`2026`)
-- Month: **full month name** (`May`) — NOT the numeric `05`. Use invariant culture.
-- Day: zero-padded 2-digit (`05`)
-- Use **UTC** for the date (consistent with the rest of the codebase).
+TASK 2 — Unlock Review modal changes
 
-If the destination container does not exist, create it automatically before writing.
+Find the unlock modal JSX (unlockOpen && ...) 
+and make these 3 changes:
 
-## Existing code to reuse / match (do not reinvent)
-- `Infrastructure/Storage/BlobArchiver.cs` — `ArchiveAsync(string sourceBlobName, CancellationToken ct)`.
-  This currently copies the blob to `_containers.Archive()` using a flat name and the
-  `StartCopyFromUriAsync` + `WaitForCompletionAsync` + `DeleteIfExistsAsync(source)` pattern.
-  **Modify this** so the destination blob name includes the Year/Month/Day prefix above.
-- `Infrastructure/Storage/ContainerClientFactory.cs` — resolves container clients via
-  `Landing()`, `Archive()`, `Failed()` from `OrigenateOptions`. Use `Archive()` as the destination.
-- Container-ensure idiom already used in `Infrastructure/DeadLetter/ErrorArchiveBlobWriter.cs`
-  and `Infrastructure/DeadLetter/StorageProvisioner.cs`:
-  `await containerClient.CreateIfNotExistsAsync(cancellationToken: ct);`
-  Use the same thread-safe one-shot guard (`SemaphoreSlim` + a `_containerEnsured` flag)
-  as `ErrorArchiveBlobWriter` if you want to avoid calling it on every blob, OR just call
-  `CreateIfNotExistsAsync` (it is idempotent) — match `ErrorArchiveBlobWriter`'s style.
-- Date-partition formatting idiom already in `ErrorArchiveBlobWriter.cs`:
-  `$"errors/{now:yyyy}/{now:MM}/{now:dd}/..."` — adapt it to use the full month name (`MMMM`).
+CHANGE 1 — Remove first radio option
+The modal has 3 options:
+1. Unlock review for general revisions (GENERAL)
+2. Unlock review for reconsideration (RECONSIDERATION)
+3. Unlock review for formal appeal (APPEAL)
 
-## Requirements
-1. Build the destination blob name as:
-   `$"{now:yyyy}/{now:MMMM}/{now:dd}/{sourceBlobName}"` using
-   `DateTimeOffset.UtcNow` and `CultureInfo.InvariantCulture` for the month name.
-2. Before copying, ensure the destination container exists via `CreateIfNotExistsAsync`.
-3. Preserve the existing copy semantics: server-side copy from the landing blob URI,
-   wait for completion, then delete the source blob (move, not duplicate).
-4. Keep the existing duplicate-name collision handling, but apply it WITHIN the dated
-   folder: if a blob with the same dated path already exists, append a
-   `-yyyyMMddHHmmss` timestamp to the file stem before the extension
-   (mirror the current logic in `BlobArchiver.cs`).
-5. Do not change the trigger, the pipeline ordering, or the auth model.
-6. Match the project's logging style (`_log.LogInformation("EventName=... Blob={Blob}", ...)`).
+Remove option 1 (GENERAL) entirely.
+Keep options 2 and 3 only.
 
-## Acceptance criteria
-- A file processed on 2026-05-05 named `Foo.xlsx` ends up at
-  `originate-processed/2026/May/05/Foo.xlsx` and is removed from `originate-landing`.
-- If `originate-processed` did not exist, it is created automatically.
-- Month appears as the full English name (`January`…`December`), not a number.
-- No connection strings introduced; managed identity path unchanged.
-- Existing unit/integration tests still pass; add a test for the dated path + month-name
-  formatting if a test project exists.
+CHANGE 2 — Change modal header text
+Find the modal header/title bar.
+BEFORE: "CAS RiskReview" or similar
+AFTER: "Unlock Review"
 
-## Deliverable
-Show the full modified `BlobArchiver.cs` (and any helper changes), plus a short note on
-anything you changed in option/config classes if needed.
+CHANGE 3 — Match header color to Review Details
+The Review Details section header uses a specific 
+color (likely text-[color:var(--brand-primary)] 
+or a teal/green color based on the screenshot).
+Find the exact color class used on the 
+Review Details section header and apply the same 
+color to the Unlock Review modal header.
+
+Show exact before/after for each of the 3 changes.
+No backend changes.
