@@ -1,34 +1,14 @@
-Read AGENTS.md and UI-PATTERNS.md first.
+STEP 1 (GetReviewHeaderByIdAsync SQL):
+    r.[Sample_type],
 
-I need you to trace the EXACT code path for 
-Sample_type from SQL to API response.
+STEP 2 (SqlDataReader mapping line):
+                SampleType = rdr.IsDBNull(44) ? null : rdr.GetString(44),
 
-Show me the EXACT code (copy the actual lines, 
-do not paraphrase) for each of these steps:
+STEP 3 (ReviewHeader property):
+            public string? SampleType { get; init; }
 
-STEP 1: The SELECT line for Sample_type in 
-GetReviewHeaderByIdAsync SQL string.
-Format: "r.[Sample_type]  -- ordinal N"
+STEP 4 (GetReviewByKeysAsync ReviewInfoSection construction):
+                    SampleType = row?.SampleType,
 
-STEP 2: The SqlDataReader mapping line that 
-reads ordinal N:
-Format: "SampleType = rdr.IsDBNull(N) ? ..."
-
-STEP 3: The ReviewHeader class property:
-Format: "public string? SampleType { get; init; }"
-
-STEP 4: The ReviewInfoSection construction 
-in GetReviewByKeysAsync — the line that 
-assigns SampleType:
-Format: "SampleType = row?.SampleType,"
-
-STEP 5: The ReviewInfoSection class in 
-Casrr.Domain/ReviewQueue.cs — the property:
-Format: "public string? SampleType { get; init; }"
-
-If ANY of these 5 steps is missing or the 
-ordinal in Step 2 does not match Step 1, 
-that is the bug. Fix it.
-
-Show all 5 lines exactly as they appear in 
-the code. No paraphrasing.
+STEP 5 (Casrr.Domain/ReviewQueue.cs ReviewInfoSection property):
+    public string? SampleType { get; init; }
