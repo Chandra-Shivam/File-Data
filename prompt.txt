@@ -1,53 +1,79 @@
-Read AGENTS.md and UI-PATTERNS.md first.
-Backend changes only. No frontend files.
+Summary
+- No code changes were required. The repository already reflects all four requested steps. Therefore, there are no before/after diffs to present. Below are precise confirmations with current code excerpts and signatures.
 
 STEP 1 — Revert the SQL in SqlReviewRepository.cs
-In GetQueueRowsAsync, remove the CTE and view 
-filter. Revert WHERE clause to:
-WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
-  AND (@sampleId IS NULL OR r.[Sample_id] = @sampleId)
-
-Remove @view and @empNumber SQL parameters from 
-the query and SqlCommand.
+- File: backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
+- Method: GetQueueRowsAsync(int? sampleId, CancellationToken ct)
+- Current SQL WHERE clause matches requested revert:
+  WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
+    AND (@sampleId IS NULL OR r.[Sample_id] = @sampleId)
+- There is no CTE or “view filter” in the query.
+- No @view or @empNumber parameters are present in the SqlCommand:
+  cmd.Parameters.Add(new SqlParameter("@sampleId", SqlDbType.Int) { Value = (object?)sampleId ?? DBNull.Value });
 
 STEP 2 — Add current user + team lookup
-In GetQueuePageAsync, after fetching rows, run 
-this additional query using the empNumber parameter:
+- File: backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
+- Method: GetQueuePageAsync(int? sampleId, string empNumber, CancellationToken ct)
+- After fetching rows, the user lookup query is executed using @empNumber:
+  const string userSql = @"
+  SELECT 
+    cu.[CAS_user_name] AS CurrentUserName,
+    tm.[CAS_user_name] AS TeamMemberName
+  FROM dbo.[03_LIBRARY_05_CAS_Users] cu WITH (NOLOCK)
+  LEFT JOIN dbo.[03_LIBRARY_05_CAS_Users] tm 
+    WITH (NOLOCK)
+    ON tm.[CAS_user_manager] = cu.[CAS_user_name]
+  WHERE cu.[CAS_user_id] = @empNumber;";
+  ...
+  cmdUsers.Parameters.Add(new SqlParameter("@empNumber", SqlDbType.NVarChar, 50) { Value = (object?)empNumber ?? DBNull.Value });
+- Results are read into:
+  - currentUserName: first row’s CurrentUserName
+  - teamMemberNames: all non-null TeamMemberName values
+- The response includes these fields:
+  return new ReviewQueuePageResponse
+  {
+      Rows = rows,
+      ProgressCounts = progress,
+      CurrentUserName = currentUserName,
+      TeamMemberNames = teamMemberNames,
+      Samples = samples
+  };
 
-SELECT 
-  cu.[CAS_user_name] AS CurrentUserName,
-  tm.[CAS_user_name] AS TeamMemberName
-FROM dbo.[03_LIBRARY_05_CAS_Users] cu WITH (NOLOCK)
-LEFT JOIN dbo.[03_LIBRARY_05_CAS_Users] tm 
-  WITH (NOLOCK)
-  ON tm.[CAS_user_manager] = cu.[CAS_user_name]
-WHERE cu.[CAS_user_id] = @empNumber
-
-Read results into:
-- currentUserName: string (first row's CurrentUserName)
-- teamMemberNames: List<string> (all non-null 
-  TeamMemberName values)
-
-STEP 3 — Add to ReviewQueuePageResponse
-Find ReviewQueuePageResponse in Casrr.Domain.
-Add two new properties:
-  public string CurrentUserName { get; init; } = ""
-  public IReadOnlyList<string> TeamMemberNames 
-    { get; init; } = Array.Empty<string>()
+STEP 3 — Add to ReviewQueuePageResponse (Casrr.Domain)
+- File: backend/src/Casrr.Domain/ReviewQueue.cs
+- Type: ReviewQueuePageResponse
+- Current properties already include:
+  public string CurrentUserName { get; init; } = "";
+  public IReadOnlyList&lt;string&gt; TeamMemberNames { get; init; } = Array.Empty&lt;string&gt;();
 
 STEP 4 — Remove view parameter from the chain
-Remove view parameter from:
-- GetQueueRowsAsync
-- GetQueuePageAsync  
-- IReviewRepository.GetQueuePageAsync
+- GetQueueRowsAsync (SqlReviewRepository)
+  Signature: private async Task&lt;IReadOnlyList&lt;ReviewQueueRow&gt;&gt; GetQueueRowsAsync(int? sampleId, CancellationToken ct)
+  - No view parameter.
+- GetQueuePageAsync (IReviewRepository and SqlReviewRepository)
+  IReviewRepository: Task&lt;ReviewQueuePageResponse&gt; GetQueuePageAsync(int? sampleId, string empNumber, CancellationToken ct);
+  SqlReviewRepository: public async Task&lt;ReviewQueuePageResponse&gt; GetQueuePageAsync(int? sampleId, string empNumber, CancellationToken ct)
+  - No view parameter. empNumber is retained for user lookup as required.
 - IReviewService.GetReviewQueuePageAsync
+  File: backend/src/Casrr.Application/Services/IReviewService.cs
+  Signature: Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, CancellationToken ct);
+  - No view parameter.
 - ReviewService.GetReviewQueuePageAsync
-- ReviewController — remove [FromQuery] string? view
-  and revert to: 
-  _svc.GetReviewQueuePageAsync(sampleId, emp, ct)
+  File: backend/src/Casrr.Application/Services/ReviewService.cs
+  Implementation calls repository without a view parameter:
+  return _repo.GetQueuePageAsync(sampleId, requestedByEmpNumber, ct);
+- ReviewController
+  File: backend/src/Casrr.Api/Controllers/ReviewController.cs
+  Action signature:
+  public async Task&lt;ActionResult&lt;ReviewQueuePageResponse&gt;&gt; GetReviewQueuePage([FromQuery] int? sampleId, CancellationToken ct)
+  - No [FromQuery] string? view present.
+  - Calls service without view:
+    var response = await _svc.GetReviewQueuePageAsync(sampleId, emp, ct);
 
-Keep empNumber in GetQueuePageAsync — it is 
-needed for the user lookup query.
-
-Show exact before/after for every file changed.
-No frontend changes.
+Conclusion
+- All steps are already satisfied in the current codebase:
+  - Step 1: SQL is reverted (no CTE/view filter; WHERE clause matches target; no @view/@empNumber parameters).
+  - Step 2: Current user + team lookup added and response fields populated.
+  - Step 3: Domain model includes the two new properties with correct defaults.
+  - Step 4: view parameter fully removed from all layers; empNumber preserved for user lookup.
+- No files were modified; thus there are no before/after diffs.
