@@ -1,218 +1,90 @@
-Implemented “My View” filter end-to-end across backend and frontend.
+Read AGENTS.md and UI-PATTERNS.md first.
 
-Summary of changes:
-- IReviewRepository already had the view parameter; no change required.
-- SqlReviewRepository: accept empNumber and view; updated SQL to include CTE and filtering; added parameters; wired through GetQueuePageAsync.
-- Service layer: IReviewService and ReviewService signatures updated to include view and pass through empNumber and view.
-- API: ReviewController queue action now accepts optional view (defaults to "dept") and passes to service.
-- Frontend API: getReviewQueuePage now accepts and forwards optional view (omits query param for ‘dept’).
-- Frontend page: review-queue now passes myView to API call and reacts to changes in myView.
+Switch My View filter from server-side to client-side.
 
-Exact before/after for each changed file:
+BACKEND CHANGES:
 
-1) backend/src/Casrr.Application/Services/IReviewService.cs
-BEFORE:
-    Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, CancellationToken ct);
-AFTER:
-    Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, string view, CancellationToken ct);
+FILE: backend/src/Casrr.Infrastructure/SqlServer/
+SqlReviewRepository.cs
 
-2) backend/src/Casrr.Application/Services/ReviewService.cs
-BEFORE:
-public Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, CancellationToken ct)
-{
-    return _repo.GetQueuePageAsync(sampleId, ct);
-}
-AFTER:
-public Task&lt;ReviewQueuePageResponse&gt; GetReviewQueuePageAsync(int? sampleId, string requestedByEmpNumber, string view, CancellationToken ct)
-{
-    return _repo.GetQueuePageAsync(sampleId, requestedByEmpNumber, view, ct);
-}
+1. Remove the CTE and view filter from the SQL — 
+   revert the WHERE clause to always return all rows:
 
-3) backend/src/Casrr.Api/Controllers/ReviewController.cs
-BEFORE:
-[HttpGet("queue")]
-[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ReviewQueuePageResponse))]
-[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ProblemDetails))]
-public async Task&lt;ActionResult&lt;ReviewQueuePageResponse&gt;&gt; GetReviewQueuePage([FromQuery] int? sampleId, CancellationToken ct)
-{
-  var emp = await ResolveEmpNumberAsync(User, ct);
-  var response = await _svc.GetReviewQueuePageAsync(sampleId, emp, ct);
-  return Ok(response);
-}
-AFTER:
-[HttpGet("queue")]
-[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ReviewQueuePageResponse))]
-[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ProblemDetails))]
-public async Task&lt;ActionResult&lt;ReviewQueuePageResponse&gt;&gt; GetReviewQueuePage(
-  [FromQuery] int? sampleId,
-  [FromQuery] string? view,
-  CancellationToken ct)
-{
-  var emp = await ResolveEmpNumberAsync(User, ct);
-  var response = await _svc.GetReviewQueuePageAsync(
-    sampleId, emp, view ?? "dept", ct);
-  return Ok(response);
-}
-
-4) backend/src/Casrr.Infrastructure/SqlServer/SqlReviewRepository.cs
-A) Update GetQueuePageAsync signature and repo call
-BEFORE:
-public async Task&lt;ReviewQueuePageResponse&gt; GetQueuePageAsync(int? sampleId, CancellationToken ct)
-{
-    ...
-    var rows = await GetQueueRowsAsync(sampleId, ct).ConfigureAwait(false);
-    ...
-}
-AFTER:
-public async Task&lt;ReviewQueuePageResponse&gt; GetQueuePageAsync(int? sampleId, string empNumber, string view, CancellationToken ct)
-{
-    ...
-    var rows = await GetQueueRowsAsync(sampleId, empNumber, view, ct).ConfigureAwait(false);
-    ...
-}
-
-B) Update GetQueueRowsAsync signature
-BEFORE:
-private async Task&lt;IReadOnlyList&lt;ReviewQueueRow&gt;&gt; GetQueueRowsAsync(int? sampleId, CancellationToken ct)
-AFTER:
-private async Task&lt;IReadOnlyList&lt;ReviewQueueRow&gt;&gt; GetQueueRowsAsync(int? sampleId, string empNumber, string view, CancellationToken ct)
-
-C) Replace WHERE query with CTE + filtered WHERE
-BEFORE:
-var sql = @"
-SELECT TOP (250)
-    r.[Review_id],
-    r.[Sample_id],
-    r.[eCIF_number],
-    r.[Customer_name],
-    r.[CRO_name],
-    r.[Relationship_mgr_name],
-    r.[Portfolio_mgr_name],
-    r.[TTBA_exposure],
-    r.[Bank_PD],
-    r.[CAS_PD],
-    r.[Completed_date],
-    r.[Review_finalized_date],
-    r.[Review_approval_date],
-    r.[Review_distributed_date],
-    r.[Start_date],
-    agg.[CommittedExposure] AS [AccountsCommittedExposure]
-FROM dbo.[02_CORE_02_Reviews] AS r WITH (NOLOCK)
-LEFT JOIN (
-    SELECT a.[Review_id], SUM(COALESCE(a.[Commitment], 0)) AS [CommittedExposure]
-    FROM dbo.[02_CORE_04_Accounts] AS a WITH (NOLOCK)
-    GROUP BY a.[Review_id]
-) AS agg
-    ON agg.[Review_id] = r.[Review_id]
+REVERT SQL back to:
 WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
   AND (@sampleId IS NULL OR r.[Sample_id] = @sampleId)
-ORDER BY
-    ISNULL(r.[Review_approval_date], ISNULL(r.[Review_finalized_date], ISNULL(r.[Completed_date], ISNULL(r.[Review_distributed_date], ISNULL(r.[Start_date], '1900-01-01'))))) DESC,
-    r.[Review_id] DESC;";
-AFTER:
-const string sql = @"
-WITH CurrentUser AS (
-    SELECT [CAS_user_name]
-    FROM dbo.[03_LIBRARY_05_CAS_Users] WITH (NOLOCK)
-    WHERE [CAS_user_id] = @empNumber
-),
-TeamMembers AS (
-    SELECT u.[CAS_user_name]
-    FROM dbo.[03_LIBRARY_05_CAS_Users] u WITH (NOLOCK)
-    INNER JOIN CurrentUser cu 
-        ON u.[CAS_user_manager] = cu.[CAS_user_name]
-)
-SELECT TOP (250)
-    r.[Review_id], r.[Sample_id], r.[eCIF_number],
-    r.[Customer_name], r.[CRO_name],
-    r.[Relationship_mgr_name], r.[Portfolio_mgr_name],
-    r.[TTBA_exposure], r.[Bank_PD], r.[CAS_PD],
-    r.[Completed_date], r.[Review_finalized_date],
-    r.[Review_approval_date], r.[Review_distributed_date],
-    r.[Start_date],
-    agg.[CommittedExposure] AS [AccountsCommittedExposure]
-FROM dbo.[02_CORE_02_Reviews] AS r WITH (NOLOCK)
-LEFT JOIN (
-    SELECT a.[Review_id], 
-        SUM(COALESCE(a.[Commitment], 0)) AS [CommittedExposure]
-    FROM dbo.[02_CORE_04_Accounts] AS a WITH (NOLOCK)
-    GROUP BY a.[Review_id]
-) AS agg ON agg.[Review_id] = r.[Review_id]
-WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
-  AND (@sampleId IS NULL OR r.[Sample_id] = @sampleId)
-  AND (
-    @view = 'dept'
-    OR (@view = 'my' AND (
-        r.[CRO_name] IN (SELECT [CAS_user_name] 
-            FROM CurrentUser)
-        OR r.[Relationship_mgr_name] IN 
-            (SELECT [CAS_user_name] FROM CurrentUser)
-        OR r.[Portfolio_mgr_name] IN 
-            (SELECT [CAS_user_name] FROM CurrentUser)
-    ))
-    OR (@view = 'team' AND (
-        r.[CRO_name] IN (SELECT [CAS_user_name] 
-            FROM TeamMembers)
-        OR r.[Relationship_mgr_name] IN 
-            (SELECT [CAS_user_name] FROM TeamMembers)
-        OR r.[Portfolio_mgr_name] IN 
-            (SELECT [CAS_user_name] FROM TeamMembers)
-    ))
-  )
-ORDER BY
-    ISNULL(r.[Review_approval_date], 
-    ISNULL(r.[Review_finalized_date], 
-    ISNULL(r.[Completed_date], 
-    ISNULL(r.[Review_distributed_date], 
-    ISNULL(r.[Start_date], '1900-01-01'))))) DESC,
-    r.[Review_id] DESC;";
 
-D) Add SQL parameters
-BEFORE:
-cmd.Parameters.Add(new SqlParameter("@sampleId", SqlDbType.Int) { Value = (object?)sampleId ?? DBNull.Value });
-AFTER:
-cmd.Parameters.Add(new SqlParameter("@sampleId", SqlDbType.Int) { Value = (object?)sampleId ?? DBNull.Value });
-cmd.Parameters.Add(new SqlParameter("@view", SqlDbType.NVarChar, 10) { Value = (object?)view ?? DBNull.Value });
-cmd.Parameters.Add(new SqlParameter("@empNumber", SqlDbType.NVarChar, 50) { Value = (object?)empNumber ?? DBNull.Value });
+Remove the CTE (CurrentUser, TeamMembers) entirely.
+Remove @view and @empNumber SQL parameters.
 
-5) frontend/src/services/api/reviews.ts
-BEFORE:
-export async function getReviewQueuePage(sampleId?: number): Promise&lt;ReviewQueuePageResponse&gt; {
-  const qs = sampleId !== undefined && sampleId !== null && !Number.isNaN(sampleId)
-    ? `?sampleId=${encodeURIComponent(String(sampleId))}`
-    : "";
-  return await get&lt;ReviewQueuePageResponse&gt;(`/api/v1/reviews/queue${qs}`);
-}
-AFTER:
-export async function getReviewQueuePage(
-  sampleId?: number,
-  view?: string): Promise&lt;ReviewQueuePageResponse&gt; {
-  const params = new URLSearchParams()
-  if (sampleId !== undefined && !Number.isNaN(sampleId))
-    params.set('sampleId', String(sampleId))
-  if (view &amp;&amp; view !== 'dept')
-    params.set('view', view)
-  const qs = params.toString() ? `?${params}` : ""
-  return await get&lt;ReviewQueuePageResponse&gt;(
-    `/api/v1/reviews/queue${qs}`)
-}
+2. Keep empNumber parameter in GetQueuePageAsync 
+   to resolve current user name and team.
+   
+   After fetching rows, also fetch the current 
+   user's name and team from CAS Users:
 
-6) frontend/src/app/review-queue/page.tsx
-BEFORE (inside loadQueue useEffect):
-const sampleIdNum = sampleSelected !== null ? Number(sampleSelected) : undefined;
-const res = await getReviewQueuePage(sampleIdNum);
-...
-}, [toast, sampleSelected]);
-AFTER:
-const sampleIdNum = sampleSelected !== null ? Number(sampleSelected) : undefined;
-const res = await getReviewQueuePage(
-  sampleIdNum, myView);
-...
-}, [toast, sampleSelected, myView]);
+   Add this query to GetQueuePageAsync:
+   
+   const string userSql = @"
+   SELECT 
+     cu.[CAS_user_name] AS CurrentUserName,
+     tm.[CAS_user_name] AS TeamMemberName
+   FROM dbo.[03_LIBRARY_05_CAS_Users] cu WITH (NOLOCK)
+   LEFT JOIN dbo.[03_LIBRARY_05_CAS_Users] tm 
+     WITH (NOLOCK)
+     ON tm.[CAS_user_manager] = cu.[CAS_user_name]
+   WHERE cu.[CAS_user_id] = @empNumber";
+   
+   Read the results:
+   - currentUserName = first row's CurrentUserName
+   - teamMemberNames = all non-null TeamMemberName values
 
-Notes:
-- backend/src/Casrr.Application/IReviewRepository.cs already contained the view parameter in GetQueuePageAsync; no changes were necessary.
-- Controller defaults view to "dept" if omitted; frontend sends the view param unless it is "dept".
-- Frontend initial myView is "my", so queue results will be filtered per-current user by default.
+3. Add these to ReviewQueuePageResponse:
+   Add two new properties to the response model 
+   (in Casrr.Domain or wherever 
+   ReviewQueuePageResponse is defined):
+   
+   public string CurrentUserName { get; init; } = ""
+   public IReadOnlyList<string> TeamMemberNames 
+     { get; init; } = Array.Empty<string>()
 
-All edits have been applied successfully.
+4. Remove view parameter from:
+   - GetQueuePageAsync
+   - GetQueueRowsAsync  
+   - IReviewRepository
+   - IReviewService
+   - ReviewService
+   - ReviewController (remove [FromQuery] string? view)
+
+FRONTEND CHANGES:
+
+FILE: frontend/src/services/api/reviews.ts
+1. Remove view parameter from getReviewQueuePage
+2. Add to ReviewQueuePageResponse type:
+   currentUserName?: string
+   teamMemberNames?: string[]
+
+FILE: frontend/src/app/review-queue/page.tsx
+1. Remove view from getReviewQueuePage call
+2. Remove myView from useEffect dependencies
+3. Store currentUserName and teamMemberNames 
+   from the API response in state
+4. Apply client-side filter based on myView:
+
+const filteredRows = useMemo(() => {
+  if (myView === 'dept') return rows
+  if (myView === 'my') {
+    return rows.filter(r => 
+      r.reviewer === currentUserName)
+  }
+  if (myView === 'team') {
+    return rows.filter(r => 
+      teamMemberNames.includes(r.reviewer))
+  }
+  return rows
+}, [rows, myView, currentUserName, teamMemberNames])
+
+Use filteredRows instead of rows when rendering 
+the DataTable.
+
+Show exact before/after for every file changed.
