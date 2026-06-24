@@ -1,152 +1,71 @@
-Completed the requested frontend-only updates after reading AGENTS.md and UI-PATTERNS.md. Below are the exact before/after changes.
+# Task: Store archived blobs in a Year/Month/Day folder structure, auto-creating the container
 
-FILE 1: frontend/src/services/api/reviews.ts
+## Context
+This is a C# .NET Azure Functions (isolated worker) project that is blob-triggered: an
+Excel file lands in the `originate-landing` container, is processed through a pipeline, and
+the source file is then archived into the `originate-processed` container.
 
-1) Add fields to ReviewQueuePageResponse
+Storage access uses **managed identity** (`DefaultAzureCredential`) via the `OrigenateStorage`
+connection — NOT connection strings, NOT `AzureWebJobsStorage`. Do not introduce connection
+strings or `BlobContainerClient` constructed from them.
 
-BEFORE:
-export type ReviewQueuePageResponse = {
-  rows: ReviewQueueRow[];
-  progressCounts: QueueProgressCount[];
-  samples: LookupItem[];
-};
+## Goal
+When a blob is archived (i.e. when the file is "created" in the destination container),
+it must be placed inside a date-partitioned folder path:
 
-AFTER:
-export type ReviewQueuePageResponse = {
-  rows: ReviewQueueRow[];
-  progressCounts: QueueProgressCount[];
-  samples: LookupItem[];
-  currentUserName?: string;
-  teamMemberNames?: string[];
-};
+```
+<Year>/<MonthFullName>/<DayTwoDigit>/<originalFileName>
+```
 
-2) Remove view parameter from getReviewQueuePage and update implementation
+Example for 2026-05-05:  `2026/May/05/MyFile.xlsx`
 
-BEFORE:
-export async function getReviewQueuePage(
-  sampleId?: number,
-  view?: string): Promise<ReviewQueuePageResponse> {
-  const params = new URLSearchParams()
-  if (sampleId !== undefined && !Number.isNaN(sampleId))
-    params.set('sampleId', String(sampleId))
-  if (view && view !== 'dept')
-    params.set('view', view)
-  const qs = params.toString() ? `?${params}` : ""
-  return await get<ReviewQueuePageResponse>(
-    `/api/v1/reviews/queue${qs}`)
-}
+Notes on the exact format (follow precisely):
+- Year: numeric 4-digit (`2026`)
+- Month: **full month name** (`May`) — NOT the numeric `05`. Use invariant culture.
+- Day: zero-padded 2-digit (`05`)
+- Use **UTC** for the date (consistent with the rest of the codebase).
 
-AFTER:
-export async function getReviewQueuePage(
-  sampleId?: number): Promise<ReviewQueuePageResponse> {
-  const params = new URLSearchParams()
-  if (sampleId !== undefined && !Number.isNaN(sampleId))
-    params.set('sampleId', String(sampleId))
-  const qs = params.toString() ? `?${params}` : ""
-  return await get<ReviewQueuePageResponse>(
-    `/api/v1/reviews/queue${qs}`)
-}
+If the destination container does not exist, create it automatically before writing.
 
-FILE 2: frontend/src/app/review-queue/page.tsx
+## Existing code to reuse / match (do not reinvent)
+- `Infrastructure/Storage/BlobArchiver.cs` — `ArchiveAsync(string sourceBlobName, CancellationToken ct)`.
+  This currently copies the blob to `_containers.Archive()` using a flat name and the
+  `StartCopyFromUriAsync` + `WaitForCompletionAsync` + `DeleteIfExistsAsync(source)` pattern.
+  **Modify this** so the destination blob name includes the Year/Month/Day prefix above.
+- `Infrastructure/Storage/ContainerClientFactory.cs` — resolves container clients via
+  `Landing()`, `Archive()`, `Failed()` from `OrigenateOptions`. Use `Archive()` as the destination.
+- Container-ensure idiom already used in `Infrastructure/DeadLetter/ErrorArchiveBlobWriter.cs`
+  and `Infrastructure/DeadLetter/StorageProvisioner.cs`:
+  `await containerClient.CreateIfNotExistsAsync(cancellationToken: ct);`
+  Use the same thread-safe one-shot guard (`SemaphoreSlim` + a `_containerEnsured` flag)
+  as `ErrorArchiveBlobWriter` if you want to avoid calling it on every blob, OR just call
+  `CreateIfNotExistsAsync` (it is idempotent) — match `ErrorArchiveBlobWriter`'s style.
+- Date-partition formatting idiom already in `ErrorArchiveBlobWriter.cs`:
+  `$"errors/{now:yyyy}/{now:MM}/{now:dd}/..."` — adapt it to use the full month name (`MMMM`).
 
-1) Remove view from getReviewQueuePage call
+## Requirements
+1. Build the destination blob name as:
+   `$"{now:yyyy}/{now:MMMM}/{now:dd}/{sourceBlobName}"` using
+   `DateTimeOffset.UtcNow` and `CultureInfo.InvariantCulture` for the month name.
+2. Before copying, ensure the destination container exists via `CreateIfNotExistsAsync`.
+3. Preserve the existing copy semantics: server-side copy from the landing blob URI,
+   wait for completion, then delete the source blob (move, not duplicate).
+4. Keep the existing duplicate-name collision handling, but apply it WITHIN the dated
+   folder: if a blob with the same dated path already exists, append a
+   `-yyyyMMddHHmmss` timestamp to the file stem before the extension
+   (mirror the current logic in `BlobArchiver.cs`).
+5. Do not change the trigger, the pipeline ordering, or the auth model.
+6. Match the project's logging style (`_log.LogInformation("EventName=... Blob={Blob}", ...)`).
 
-BEFORE:
-const res = await getReviewQueuePage(
-  sampleIdNum, myView);
+## Acceptance criteria
+- A file processed on 2026-05-05 named `Foo.xlsx` ends up at
+  `originate-processed/2026/May/05/Foo.xlsx` and is removed from `originate-landing`.
+- If `originate-processed` did not exist, it is created automatically.
+- Month appears as the full English name (`January`…`December`), not a number.
+- No connection strings introduced; managed identity path unchanged.
+- Existing unit/integration tests still pass; add a test for the dated path + month-name
+  formatting if a test project exists.
 
-AFTER:
-const res = await getReviewQueuePage(
-  sampleIdNum);
-
-2) Remove myView from useEffect dependency array
-
-BEFORE:
-}, [toast, sampleSelected, myView]);
-
-AFTER:
-}, [toast, sampleSelected]);
-
-3) Add currentUserName and teamMemberNames state immediately after rows state
-
-BEFORE:
-const [myView, setMyView] = useState<string>("my");
-const [rows, setRows] = useState<ReviewRow[]>([]);
-
-AFTER:
-const [myView, setMyView] = useState<string>("my");
-const [rows, setRows] = useState<ReviewRow[]>([]);
-const [currentUserName, setCurrentUserName] = useState<string>("");
-const [teamMemberNames, setTeamMemberNames] = useState<string[]>([]);
-
-4) After setting rows from response, add lines to set currentUserName and teamMemberNames
-
-BEFORE:
-setRows(r2);
-setProgressCounts(pc);
-
-AFTER:
-setRows(r2);
-setCurrentUserName(res.currentUserName ?? "");
-setTeamMemberNames(res.teamMemberNames ?? []);
-setProgressCounts(pc);
-
-5) Compute filteredRows using myView/currentUserName/teamMemberNames, then apply global text filter
-
-BEFORE:
-/* Global filter across visible fields */
-const filteredRows = useMemo(() => {
-  const q = filterQuery.trim().toLowerCase();
-  if (!q) return rows;
-  return rows.filter((r) => {
-    const vals = [
-      (r as any).id,
-      (r as any).ecif,
-      (r as any).borrower,
-      (r as any).reviewer,
-      (r as any).exposure,
-      (r as any).bankPd,
-      (r as any).casPd,
-      (r as any).completed,
-    ];
-    return vals.some((v) => String(v ?? "").toLowerCase().includes(q));
-  });
-}, [rows, filterQuery]);
-
-AFTER:
-/* Global filter across visible fields + myView filter */
-const filteredRows = useMemo(() => {
-  const base =
-    myView === "dept"
-      ? rows
-      : myView === "my"
-      ? rows.filter((r) => r.reviewer === currentUserName)
-      : myView === "team"
-      ? rows.filter((r) => teamMemberNames.includes(r.reviewer))
-      : rows;
-
-  const q = filterQuery.trim().toLowerCase();
-  if (!q) return base;
-  return base.filter((r) => {
-    const vals = [
-      (r as any).id,
-      (r as any).ecif,
-      (r as any).borrower,
-      (r as any).reviewer,
-      (r as any).exposure,
-      (r as any).bankPd,
-      (r as any).casPd,
-      (r as any).completed,
-    ];
-    return vals.some((v) => String(v ?? "").toLowerCase().includes(q));
-  });
-}, [rows, myView, currentUserName, teamMemberNames, filterQuery]);
-
-6) Update sorting to use filteredRows instead of rows
-- Note: In this file, sortedRows already sorted filteredRows prior to this change, so no diff was required. It remains:
-const sortedRows = useMemo(() => {
-  const arr = [...filteredRows];
-  ...
-}, [filteredRows, sortBy, sortDir]);
-
-No backend changes were made.
+## Deliverable
+Show the full modified `BlobArchiver.cs` (and any helper changes), plus a short note on
+anything you changed in option/config classes if needed.
