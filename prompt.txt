@@ -1,90 +1,53 @@
 Read AGENTS.md and UI-PATTERNS.md first.
+Backend changes only. No frontend files.
 
-Switch My View filter from server-side to client-side.
-
-BACKEND CHANGES:
-
-FILE: backend/src/Casrr.Infrastructure/SqlServer/
-SqlReviewRepository.cs
-
-1. Remove the CTE and view filter from the SQL — 
-   revert the WHERE clause to always return all rows:
-
-REVERT SQL back to:
+STEP 1 — Revert the SQL in SqlReviewRepository.cs
+In GetQueueRowsAsync, remove the CTE and view 
+filter. Revert WHERE clause to:
 WHERE (r.[Cancelled] IS NULL OR r.[Cancelled] = 0)
   AND (@sampleId IS NULL OR r.[Sample_id] = @sampleId)
 
-Remove the CTE (CurrentUser, TeamMembers) entirely.
-Remove @view and @empNumber SQL parameters.
+Remove @view and @empNumber SQL parameters from 
+the query and SqlCommand.
 
-2. Keep empNumber parameter in GetQueuePageAsync 
-   to resolve current user name and team.
-   
-   After fetching rows, also fetch the current 
-   user's name and team from CAS Users:
+STEP 2 — Add current user + team lookup
+In GetQueuePageAsync, after fetching rows, run 
+this additional query using the empNumber parameter:
 
-   Add this query to GetQueuePageAsync:
-   
-   const string userSql = @"
-   SELECT 
-     cu.[CAS_user_name] AS CurrentUserName,
-     tm.[CAS_user_name] AS TeamMemberName
-   FROM dbo.[03_LIBRARY_05_CAS_Users] cu WITH (NOLOCK)
-   LEFT JOIN dbo.[03_LIBRARY_05_CAS_Users] tm 
-     WITH (NOLOCK)
-     ON tm.[CAS_user_manager] = cu.[CAS_user_name]
-   WHERE cu.[CAS_user_id] = @empNumber";
-   
-   Read the results:
-   - currentUserName = first row's CurrentUserName
-   - teamMemberNames = all non-null TeamMemberName values
+SELECT 
+  cu.[CAS_user_name] AS CurrentUserName,
+  tm.[CAS_user_name] AS TeamMemberName
+FROM dbo.[03_LIBRARY_05_CAS_Users] cu WITH (NOLOCK)
+LEFT JOIN dbo.[03_LIBRARY_05_CAS_Users] tm 
+  WITH (NOLOCK)
+  ON tm.[CAS_user_manager] = cu.[CAS_user_name]
+WHERE cu.[CAS_user_id] = @empNumber
 
-3. Add these to ReviewQueuePageResponse:
-   Add two new properties to the response model 
-   (in Casrr.Domain or wherever 
-   ReviewQueuePageResponse is defined):
-   
-   public string CurrentUserName { get; init; } = ""
-   public IReadOnlyList<string> TeamMemberNames 
-     { get; init; } = Array.Empty<string>()
+Read results into:
+- currentUserName: string (first row's CurrentUserName)
+- teamMemberNames: List<string> (all non-null 
+  TeamMemberName values)
 
-4. Remove view parameter from:
-   - GetQueuePageAsync
-   - GetQueueRowsAsync  
-   - IReviewRepository
-   - IReviewService
-   - ReviewService
-   - ReviewController (remove [FromQuery] string? view)
+STEP 3 — Add to ReviewQueuePageResponse
+Find ReviewQueuePageResponse in Casrr.Domain.
+Add two new properties:
+  public string CurrentUserName { get; init; } = ""
+  public IReadOnlyList<string> TeamMemberNames 
+    { get; init; } = Array.Empty<string>()
 
-FRONTEND CHANGES:
+STEP 4 — Remove view parameter from the chain
+Remove view parameter from:
+- GetQueueRowsAsync
+- GetQueuePageAsync  
+- IReviewRepository.GetQueuePageAsync
+- IReviewService.GetReviewQueuePageAsync
+- ReviewService.GetReviewQueuePageAsync
+- ReviewController — remove [FromQuery] string? view
+  and revert to: 
+  _svc.GetReviewQueuePageAsync(sampleId, emp, ct)
 
-FILE: frontend/src/services/api/reviews.ts
-1. Remove view parameter from getReviewQueuePage
-2. Add to ReviewQueuePageResponse type:
-   currentUserName?: string
-   teamMemberNames?: string[]
-
-FILE: frontend/src/app/review-queue/page.tsx
-1. Remove view from getReviewQueuePage call
-2. Remove myView from useEffect dependencies
-3. Store currentUserName and teamMemberNames 
-   from the API response in state
-4. Apply client-side filter based on myView:
-
-const filteredRows = useMemo(() => {
-  if (myView === 'dept') return rows
-  if (myView === 'my') {
-    return rows.filter(r => 
-      r.reviewer === currentUserName)
-  }
-  if (myView === 'team') {
-    return rows.filter(r => 
-      teamMemberNames.includes(r.reviewer))
-  }
-  return rows
-}, [rows, myView, currentUserName, teamMemberNames])
-
-Use filteredRows instead of rows when rendering 
-the DataTable.
+Keep empNumber in GetQueuePageAsync — it is 
+needed for the user lookup query.
 
 Show exact before/after for every file changed.
+No frontend changes.
