@@ -1,49 +1,34 @@
 Read AGENTS.md and UI-PATTERNS.md first.
 
-Open this file:
-backend/src/Casrr.Infrastructure/SqlServer/
-SqlReviewRepository.cs
+I need you to trace the EXACT code path for 
+Sample_type from SQL to API response.
 
-Find the private method GetReviewHeaderByIdAsync.
-Show me every column in its SELECT list with 
-ordinal numbers, like this:
-0: r.[Review_id]
-1: r.[eCIF_number]
-... and so on until the last column.
+Show me the EXACT code (copy the actual lines, 
+do not paraphrase) for each of these steps:
 
-Then answer YES or NO:
-Is r.[Sample_type] in this SELECT list?
-Is r.[Sample_criteria] in this SELECT list?
+STEP 1: The SELECT line for Sample_type in 
+GetReviewHeaderByIdAsync SQL string.
+Format: "r.[Sample_type]  -- ordinal N"
 
-If NO for either — make these changes:
+STEP 2: The SqlDataReader mapping line that 
+reads ordinal N:
+Format: "SampleType = rdr.IsDBNull(N) ? ..."
 
-1. Add to SELECT list in GetReviewHeaderByIdAsync,
-   GetLatestReviewHeaderForSampleAndEcifAsync, and
-   GetLatestReviewHeaderForEcifAsync:
-   r.[Sample_type],
-   r.[Sample_criteria]
+STEP 3: The ReviewHeader class property:
+Format: "public string? SampleType { get; init; }"
 
-2. Add to ReviewHeader class:
-   public string? SampleType { get; init; }
-   public string? SampleCriteria { get; init; }
+STEP 4: The ReviewInfoSection construction 
+in GetReviewByKeysAsync — the line that 
+assigns SampleType:
+Format: "SampleType = row?.SampleType,"
 
-3. Add to SqlDataReader at next available ordinal N:
-   SampleType = rdr.IsDBNull(N) 
-     ? null : rdr.GetString(N),
-   SampleCriteria = rdr.IsDBNull(N+1) 
-     ? null : rdr.GetString(N+1)
+STEP 5: The ReviewInfoSection class in 
+Casrr.Domain/ReviewQueue.cs — the property:
+Format: "public string? SampleType { get; init; }"
 
-4. In GetReviewByEcifAsync and 
-   GetReviewByKeysAsync where ReviewInfoSection 
-   is constructed, add:
-   SampleType = row?.SampleType,
-   SampleTarget = row?.SampleCriteria,
+If ANY of these 5 steps is missing or the 
+ordinal in Step 2 does not match Step 1, 
+that is the bug. Fix it.
 
-5. In Casrr.Domain/ReviewQueue.cs, check 
-   ReviewInfoSection — if SampleType and 
-   SampleTarget are missing, add:
-   public string? SampleType { get; init; }
-   public string? SampleTarget { get; init; }
-
-Show exact before/after for every change.
-No frontend changes.
+Show all 5 lines exactly as they appear in 
+the code. No paraphrasing.
