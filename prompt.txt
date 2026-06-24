@@ -1,131 +1,49 @@
-Task 1 — Read and report
+Read AGENTS.md and UI-PATTERNS.md first.
 
-1) useReviewInfo.ts — variable holding details and current mappings
-- Variable holding the Review Info details section used by the component:
-  In ReviewInfoSection.tsx:
-    const d = data?.details;
+Open this file:
+backend/src/Casrr.Infrastructure/SqlServer/
+SqlReviewRepository.cs
 
-- Current mapping for sampleType and sampleTarget in useReviewInfo.ts:
+Find the private method GetReviewHeaderByIdAsync.
+Show me every column in its SELECT list with 
+ordinal numbers, like this:
+0: r.[Review_id]
+1: r.[eCIF_number]
+... and so on until the last column.
 
-  // Resolve optional lookups for review type and target if ids are present
-  const reviewTypeName =
-    nz(review.reviewType as string | null | undefined) ||
-    resolveLookupName(res.lookups?.reviewTypes, review.reviewTypeId as string | null | undefined);
-  const targetName =
-    nz(review.sampleTarget as string | null | undefined) ||
-    resolveLookupName(res.lookups?.targets, review.targetId as string | null | undefined);
+Then answer YES or NO:
+Is r.[Sample_type] in this SELECT list?
+Is r.[Sample_criteria] in this SELECT list?
 
-  return {
-    details: {
-      // Prefer server-provided names; fall back to lookups where necessary
-      sampleId: sampleIdStr,
-      sampleTarget: targetName,
-      sampleDate: sampleDateDisplay,
-      reviewId: res.reviewId != null ? String(res.reviewId) : "",
-      sampleType: nz(review.sampleType as string | null | undefined),
-      reviewType: reviewTypeName
-    },
+If NO for either — make these changes:
 
-2) ReviewInfoSection.tsx — exact JSX for SAMPLE TYPE and SAMPLE TARGET
-  <Field label="Sample Target" value={d?.sampleTarget ?? ""} section="reviewInfo" name="sampleTarget" readOnly />
-  <Field label="Review Type" value={d?.reviewType ?? ""} section="reviewInfo" name="reviewType" readOnly />
-  <Field label="Sample Date" value={d?.sampleDate ?? ""} section="reviewInfo" name="sampleDate" readOnly />
-  <Field label="Sample Type" value={d?.sampleType ?? ""} section="reviewInfo" name="sampleType" readOnly />
+1. Add to SELECT list in GetReviewHeaderByIdAsync,
+   GetLatestReviewHeaderForSampleAndEcifAsync, and
+   GetLatestReviewHeaderForEcifAsync:
+   r.[Sample_type],
+   r.[Sample_criteria]
 
-3) frontend/src/services/api/reviews.ts — ReviewInfoSection type fields
-- sampleType and sampleTarget are present:
+2. Add to ReviewHeader class:
+   public string? SampleType { get; init; }
+   public string? SampleCriteria { get; init; }
 
-  export type ReviewInfoSection = {
-    // New fields provided by backend for Review Info
-    sampleId?: number | null;
-    sampleDate?: string | null;       // ISO date
-    sampleType?: string | null;
-    sampleTarget?: string | null;
+3. Add to SqlDataReader at next available ordinal N:
+   SampleType = rdr.IsDBNull(N) 
+     ? null : rdr.GetString(N),
+   SampleCriteria = rdr.IsDBNull(N+1) 
+     ? null : rdr.GetString(N+1)
 
-Fix assessment for Task 1
-- Type already defines sampleType?: string | null and sampleTarget?: string | null.
-- Hook maps details.sampleType from review.sampleType and details.sampleTarget from review.sampleTarget or lookups.
-- JSX already binds d?.sampleType and d?.sampleTarget.
-- No fixes required; therefore no before/after changes for Task 1.
+4. In GetReviewByEcifAsync and 
+   GetReviewByKeysAsync where ReviewInfoSection 
+   is constructed, add:
+   SampleType = row?.SampleType,
+   SampleTarget = row?.SampleCriteria,
 
-Task 2 — Unlock Review modal changes
+5. In Casrr.Domain/ReviewQueue.cs, check 
+   ReviewInfoSection — if SampleType and 
+   SampleTarget are missing, add:
+   public string? SampleType { get; init; }
+   public string? SampleTarget { get; init; }
 
-Location
-- Found at: frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
-- Unlock modal JSX is under:
-  {unlockOpen && ReactDOM.createPortal( ... )}
-
-CHANGE 1 — Remove first radio option “GENERAL”
-- Before: No “GENERAL” option exists; the modal already contains only two options.
-  Exact options present (unchanged):
-
-  <div
-    role="radio"
-    aria-checked={unlockReason === "RECONSIDERATION"}
-    tabIndex={0}
-    onClick={() => {
-      setUnlockReason("RECONSIDERATION");
-      setUnlockOpen(false);
-      setReconsiderationOpen(true);
-    }}
-    className="flex items-center gap-2 cursor-pointer select-none p-2 rounded hover:bg-slate-50"
-  >
-    ...
-    <span className="text-sm">
-      Unlock review for reconsideration
-    </span>
-  </div>
-
-  <div
-    role="radio"
-    aria-checked={unlockReason === "APPEAL"}
-    tabIndex={0}
-    onClick={() => {
-      setUnlockReason("APPEAL");
-      setUnlockOpen(false);
-      setAppealOpen(true);
-    }}
-    className="flex items-center gap-2 cursor-pointer select-none p-2 rounded hover:bg-slate-50"
-  >
-    ...
-    <span className="text-sm">
-      Unlock review for formal appeal of PD/LGD grade or CRM ratings
-    </span>
-  </div>
-
-- After: No change required (GENERAL option not present).
-
-CHANGE 2 — Change modal header text to “Unlock Review”
-- Before: Header text already “Unlock Review”.
-  Example (unlock modal app bar):
-    <span className="text-sm font-semibold text-[color:var(--brand-primary)]">Unlock Review</span>
-
-- After: Still “Unlock Review” (class updated in Change 3 below).
-
-CHANGE 3 — Match header color to Review Details
-- Review Details header color class (from SectionCard default in ui.tsx):
-  "text-green-600"
-- Applied the same "text-green-600" to the Unlock Review modal header text (and to the reconsideration/appeal modals for consistency).
-
-Exact before/after changes performed in ReviewInfoSection.tsx (three occurrences)
-1) Unlock modal app bar
-- Before:
-  <span className="text-sm font-semibold text-[color:var(--brand-primary)]">Unlock Review</span>
-- After:
-  <span className="text-sm font-semibold text-green-600">Unlock Review</span>
-
-2) Reconsideration modal app bar
-- Before:
-  <span className="text-sm font-semibold text-[color:var(--brand-primary)]">Unlock Review</span>
-- After:
-  <span className="text-sm font-semibold text-green-600">Unlock Review</span>
-
-3) Appeal modal app bar
-- Before:
-  <span className="text-sm font-semibold text-[color:var(--brand-primary)]">Unlock Review</span>
-- After:
-  <span className="text-sm font-semibold text-green-600">Unlock Review</span>
-
-Summary
-- Task 1: Confirmed presence and bindings of sampleType and sampleTarget across type, hook, and JSX. No code changes required.
-- Task 2: No GENERAL option existed; header title already “Unlock Review”. Updated header text color to match Review Details by changing class to text-green-600 in three places. No backend changes were made.
+Show exact before/after for every change.
+No frontend changes.
