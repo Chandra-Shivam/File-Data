@@ -1,54 +1,101 @@
 Read AGENTS.md and UI-PATTERNS.md first.
 
-Backend only. No frontend changes.
+TASK 1 — Sample Type and Sample Target not showing
 
-Only modify:
-backend/src/Casrr.Infrastructure/SqlServer/
-SqlReviewRepository.cs
+1) useReviewInfo.ts — variable holding ReviewInfo details and current mappings
+- Variable holding the ReviewInfo details section:
+  In ReviewInfoSection.tsx, the hook result is assigned and the details object is referenced by d:
+    const d = data?.details
+  This d is produced by useReviewInfo(), whose mapper builds the details object.
 
-ISSUE: Sample_type column exists in 
-dbo.[02_CORE_02_Reviews] but is NOT being 
-selected in the ReviewHeader queries. 
-Sample_target (Sample_criteria) is also missing.
+- Current mapping for sampleType and sampleTarget (from useReviewInfo.ts):
+  In mapReviewToReviewInfo():
+    return {
+      details: {
+        // …
+        sampleTarget: targetName,
+        // …
+        sampleType: nz(review.sampleType as string | null | undefined),
+        // …
+      },
+      // …
+    }
 
-STEP 1 — Read and show the current SELECT list 
-for GetReviewHeaderByIdAsync. Identify what 
-ordinal index comes after the last existing column.
+  And above, targetName is resolved as:
+    const targetName =
+      nz(review.sampleTarget as string | null | undefined) ||
+      resolveLookupName(res.lookups?.targets, review.targetId as string | null | undefined);
 
-STEP 2 — Add these two columns to ALL THREE 
-ReviewHeader SELECT queries:
-  r.[Sample_type],
-  r.[Sample_criteria]
+  Summary:
+  - sampleType is mapped directly from review.sampleType.
+  - sampleTarget is mapped from review.sampleTarget, falling back to lookups via targetId.
 
-Add them at the end of the SELECT list, after 
-the existing new fields (Prior_CAS_review_id etc.)
+2) ReviewInfoSection.tsx — exact JSX for SAMPLE TYPE and SAMPLE TARGET fields
+  <Field label="Sample Target" value={d?.sampleTarget ?? ""} section="reviewInfo" name="sampleTarget" readOnly />
+  <Field label="Sample Type" value={d?.sampleType ?? ""} section="reviewInfo" name="sampleType" readOnly />
 
-STEP 3 — Add properties to ReviewHeader class:
-  public string? SampleType { get; init; }
-  public string? SampleCriteria { get; init; }
+3) reviews.ts — does ReviewInfoSection type include sampleType and sampleTarget?
+Yes. In frontend/src/services/api/reviews.ts:
+  export type ReviewInfoSection = {
+    // New fields provided by backend for Review Info
+    sampleId?: number | null;
+    sampleDate?: string | null;       // ISO date
+    sampleType?: string | null;
+    sampleTarget?: string | null;
+    // …
+  };
 
-STEP 4 — Map in SqlDataReader for all three queries:
-  SampleType = rdr.IsDBNull(N) ? null : rdr.GetString(N),
-  SampleCriteria = rdr.IsDBNull(N+1) ? null : rdr.GetString(N+1)
+Conclusion for Task 1
+- Types already include sampleType and sampleTarget with exact requested shapes.
+- Hook mapping already maps both fields from the API response (with lookup fallback for target).
+- JSX already binds to d?.sampleType and d?.sampleTarget.
+No changes required for Task 1; before/after are identical.
 
-Where N is the next ordinal after existing columns.
+TASK 2 — Unlock Review modal changes
 
-STEP 5 — Map to ReviewInfoSection in both 
-GetReviewByEcifAsync and GetReviewByKeysAsync:
+Location: frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
 
-BEFORE:
-  SecondReviewer = row?.MentorName,
+CHANGE 1 — Remove first radio option (GENERAL)
+- Before: The unlock modal already rendered only two options (RECONSIDERATION and APPEAL). There was no GENERAL option present.
+  Present options:
+    - Unlock review for reconsideration
+    - Unlock review for formal appeal of PD/LGD grade or CRM ratings
+- After: No change. GENERAL option did not exist.
 
-AFTER:
-  SecondReviewer = row?.MentorName,
-  SampleType = row?.SampleType,
-  SampleTarget = row?.SampleCriteria,
+CHANGE 2 — Change modal header text
+- Before: All three modal headers already display “Unlock Review”.
+  - Unlock modal app bar: <span className="text-sm font-semibold text-green-600">Unlock Review</span>
+  - Reconsideration modal app bar: <span className="text-sm font-semibold">Unlock Review</span>
+  - Appeal modal app bar: <span className="text-sm font-semibold">Unlock Review</span>
+- After: Text remains “Unlock Review” in all modals. No change needed for wording.
 
-STEP 6 — Verify ReviewInfoSection in 
-Casrr.Domain already has SampleType and 
-SampleTarget properties. If not, add:
-  public string? SampleType { get; init; }
-  public string? SampleTarget { get; init; }
+CHANGE 3 — Match header color to Review Details header
+- Reference color: Review Details uses the SectionCard default titleClassName "text-green-600" (see components/ui.tsx).
+- Fix applied: Add text-green-600 to the reconsideration and appeal modal header title spans to match.
 
-Show exact before/after for every change.
-No frontend changes.
+Exact before/after for the fixes (applied)
+
+File: frontend/src/app/review/[ecif]/review-info/components/sections/ReviewInfoSection.tsx
+
+1) Reconsideration modal header title
+- Before:
+                <span className="text-sm font-semibold">Unlock Review</span>
+- After:
+                <span className="text-sm font-semibold text-green-600">Unlock Review</span>
+
+2) Appeal modal header title
+- Before:
+                <span className="text-sm font-semibold">Unlock Review</span>
+- After:
+                <span className="text-sm font-semibold text-green-600">Unlock Review</span>
+
+No other changes were necessary.
+
+Verification of the “SAMPLE TYPE” and “SAMPLE TARGET” fields after review
+- JSX continues to bind to d?.sampleType and d?.sampleTarget exactly as required:
+  <Field label="Sample Target" value={d?.sampleTarget ?? ""} section="reviewInfo" name="sampleTarget" readOnly />
+  <Field label="Sample Type" value={d?.sampleType ?? ""} section="reviewInfo" name="sampleType" readOnly />
+
+Summary
+- Task 1: Everything was already correctly wired — types, hook mappings, and JSX bindings. No edits needed.
+- Task 2: Only header color alignment was needed; updated both reconsideration and appeal modals to use text-green-600 on the title, matching Review Details. The unlock options already excluded GENERAL; header text already “Unlock Review”.
