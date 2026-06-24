@@ -1,61 +1,152 @@
-Read AGENTS.md and UI-PATTERNS.md first.
-Frontend only. No backend changes.
+Completed the requested frontend-only updates after reading AGENTS.md and UI-PATTERNS.md. Below are the exact before/after changes.
 
 FILE 1: frontend/src/services/api/reviews.ts
 
-1. Remove view parameter from getReviewQueuePage — 
-   revert to only accepting sampleId:
-   export async function getReviewQueuePage(
-     sampleId?: number): Promise<ReviewQueuePageResponse>
+1) Add fields to ReviewQueuePageResponse
 
-2. Add to ReviewQueuePageResponse type:
-   currentUserName?: string
-   teamMemberNames?: string[]
+BEFORE:
+export type ReviewQueuePageResponse = {
+  rows: ReviewQueueRow[];
+  progressCounts: QueueProgressCount[];
+  samples: LookupItem[];
+};
 
-Show exact before/after.
+AFTER:
+export type ReviewQueuePageResponse = {
+  rows: ReviewQueueRow[];
+  progressCounts: QueueProgressCount[];
+  samples: LookupItem[];
+  currentUserName?: string;
+  teamMemberNames?: string[];
+};
+
+2) Remove view parameter from getReviewQueuePage and update implementation
+
+BEFORE:
+export async function getReviewQueuePage(
+  sampleId?: number,
+  view?: string): Promise<ReviewQueuePageResponse> {
+  const params = new URLSearchParams()
+  if (sampleId !== undefined && !Number.isNaN(sampleId))
+    params.set('sampleId', String(sampleId))
+  if (view && view !== 'dept')
+    params.set('view', view)
+  const qs = params.toString() ? `?${params}` : ""
+  return await get<ReviewQueuePageResponse>(
+    `/api/v1/reviews/queue${qs}`)
+}
+
+AFTER:
+export async function getReviewQueuePage(
+  sampleId?: number): Promise<ReviewQueuePageResponse> {
+  const params = new URLSearchParams()
+  if (sampleId !== undefined && !Number.isNaN(sampleId))
+    params.set('sampleId', String(sampleId))
+  const qs = params.toString() ? `?${params}` : ""
+  return await get<ReviewQueuePageResponse>(
+    `/api/v1/reviews/queue${qs}`)
+}
 
 FILE 2: frontend/src/app/review-queue/page.tsx
 
-1. Remove view from getReviewQueuePage call:
-   BEFORE: getReviewQueuePage(sampleIdNum, myView)
-   AFTER:  getReviewQueuePage(sampleIdNum)
+1) Remove view from getReviewQueuePage call
 
-2. Remove myView from useEffect dependency array
+BEFORE:
+const res = await getReviewQueuePage(
+  sampleIdNum, myView);
 
-3. After the existing rows state, add:
-   const [currentUserName, setCurrentUserName] = 
-     useState<string>("")
-   const [teamMemberNames, setTeamMemberNames] = 
-     useState<string[]>([])
+AFTER:
+const res = await getReviewQueuePage(
+  sampleIdNum);
 
-4. Inside the loadQueue useEffect, after setting 
-   rows from the response, add:
-   setCurrentUserName(res.currentUserName ?? "")
-   setTeamMemberNames(res.teamMemberNames ?? [])
+2) Remove myView from useEffect dependency array
 
-5. After rows state, compute filteredRows:
-   const filteredRows = useMemo(() => {
-     if (myView === 'dept') return rows
-     if (myView === 'my')
-       return rows.filter(r => 
-         r.reviewer === currentUserName)
-     if (myView === 'team')
-       return rows.filter(r => 
-         teamMemberNames.includes(r.reviewer))
-     return rows
-   }, [rows, myView, currentUserName, teamMemberNames])
+BEFORE:
+}, [toast, sampleSelected, myView]);
 
-6. Replace rows with filteredRows in the 
-   DataTable component:
-   BEFORE: rows={sortedRows}
-   Note: sortedRows is likely derived from rows.
-   Update the sort source to use filteredRows:
-   
-   Find where sortedRows is computed — it likely 
-   sorts the rows array. Change it to sort 
-   filteredRows instead:
-   BEFORE: [...rows].sort(...)
-   AFTER:  [...filteredRows].sort(...)
+AFTER:
+}, [toast, sampleSelected]);
 
-Show exact before/after for every change.
-No backend changes.
+3) Add currentUserName and teamMemberNames state immediately after rows state
+
+BEFORE:
+const [myView, setMyView] = useState<string>("my");
+const [rows, setRows] = useState<ReviewRow[]>([]);
+
+AFTER:
+const [myView, setMyView] = useState<string>("my");
+const [rows, setRows] = useState<ReviewRow[]>([]);
+const [currentUserName, setCurrentUserName] = useState<string>("");
+const [teamMemberNames, setTeamMemberNames] = useState<string[]>([]);
+
+4) After setting rows from response, add lines to set currentUserName and teamMemberNames
+
+BEFORE:
+setRows(r2);
+setProgressCounts(pc);
+
+AFTER:
+setRows(r2);
+setCurrentUserName(res.currentUserName ?? "");
+setTeamMemberNames(res.teamMemberNames ?? []);
+setProgressCounts(pc);
+
+5) Compute filteredRows using myView/currentUserName/teamMemberNames, then apply global text filter
+
+BEFORE:
+/* Global filter across visible fields */
+const filteredRows = useMemo(() => {
+  const q = filterQuery.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter((r) => {
+    const vals = [
+      (r as any).id,
+      (r as any).ecif,
+      (r as any).borrower,
+      (r as any).reviewer,
+      (r as any).exposure,
+      (r as any).bankPd,
+      (r as any).casPd,
+      (r as any).completed,
+    ];
+    return vals.some((v) => String(v ?? "").toLowerCase().includes(q));
+  });
+}, [rows, filterQuery]);
+
+AFTER:
+/* Global filter across visible fields + myView filter */
+const filteredRows = useMemo(() => {
+  const base =
+    myView === "dept"
+      ? rows
+      : myView === "my"
+      ? rows.filter((r) => r.reviewer === currentUserName)
+      : myView === "team"
+      ? rows.filter((r) => teamMemberNames.includes(r.reviewer))
+      : rows;
+
+  const q = filterQuery.trim().toLowerCase();
+  if (!q) return base;
+  return base.filter((r) => {
+    const vals = [
+      (r as any).id,
+      (r as any).ecif,
+      (r as any).borrower,
+      (r as any).reviewer,
+      (r as any).exposure,
+      (r as any).bankPd,
+      (r as any).casPd,
+      (r as any).completed,
+    ];
+    return vals.some((v) => String(v ?? "").toLowerCase().includes(q));
+  });
+}, [rows, myView, currentUserName, teamMemberNames, filterQuery]);
+
+6) Update sorting to use filteredRows instead of rows
+- Note: In this file, sortedRows already sorted filteredRows prior to this change, so no diff was required. It remains:
+const sortedRows = useMemo(() => {
+  const arr = [...filteredRows];
+  ...
+}, [filteredRows, sortBy, sortDir]);
+
+No backend changes were made.
